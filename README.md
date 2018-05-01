@@ -30,8 +30,11 @@ Login at https://jupyter-dev.nersc.gov and navigate to the directory
 where you cloned the inspector repository.  Click `inspector.ipynb` to
 start the notebook and explore.
 
-See the [inspector.ipynb](https://github.com/sbailey/inspector/inspector.ipynb) notebook on github
-to see a static example of what can be done (you'll have to run it from NERSC to get the real interactivity).
+Note: Unfortunately jupyter does not save the generated plots in
+the notebook itself, so viewing the static notebook on github isn't
+so instructive; you'll need to really start it at NERSC yourself.
+There is a floppy disk (!) save icon on the plot that can be used to
+save the plot if you want to send it to someone else.
 
 ## What it does
 
