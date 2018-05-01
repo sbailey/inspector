@@ -68,6 +68,6 @@ Any of these could be added later but don't yet exist.  Any volunteers?
 * Imaging survey thumbnails or links
 
 <hr/>
-**Stephen Bailey**<br/>
+**Stephen Bailey** <br/>
 Lawrence Berkeley National Lab<br/>
 Spring 2018
