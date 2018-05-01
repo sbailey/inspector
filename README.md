@@ -1,0 +1,70 @@
+# Inspector
+
+It's for inspecting DESI spectra.
+
+## Overview
+
+Inspector is a prototype DESI spectral viewer for use with jupyter
+notebooks at NERSC.  It provides a fast interactive viewer for spectral
+data at NERSC without requiring users to download the data
+or install any code locally.
+
+It is currently in a standalone package for exploratory development,
+but could be moved into desispec after it matures.
+
+This should be viewed as a technology demonstrator.  Details about the
+interface and implementation can and probably will (should!) change.
+The main point of releasing this package is to provide a functionally useful
+demonstration that bokeh+jupyter+NERSC could work for viewing DESI spectra.
+
+## Getting Started
+
+See https://desi.lbl.gov/trac/wiki/Computing/JupyterAtNERSC for instructions to configure a desi-18.3 jupyter kernel at NERSC.  This only needs to be done once.
+
+Checkout the Inspector code on cori.nersc.gov:
+```
+git clone https://github.com/sbailey/inspector
+```
+
+Login at https://jupyter-dev.nersc.gov and navigate to the directory
+where you cloned the inspector repository.  Click `inspector.ipynb` to
+start the notebook and explore.
+
+See the [inspector.ipynb](https://github.com/sbailey/inspector/inspector.ipynb) notebook on github
+to see a static example of what can be done (you'll have to run it from NERSC to get the real interactivity).
+
+## What it does
+
+* Provides an interactive spectral viewer for DESI data at NERSC without
+  needing to download or install anything locally.
+* Interative zoom and pan
+* Shows redrock results including the redshift, ZWARN flags, and the
+  best fit model.
+* Mouse over a region of the spectrum to get a real-time zoom in a sub-window;
+  this is handy for inspecting narrow emission lines without zooming in and out
+  on each one.
+* Shows TARGETID and targeting bits from DESI_TARGET, MWS_TARGET,
+  and BGS_TARGET.
+
+![Inspector Screenshot](screenshot.png)
+
+## What is doesn't do (yet)
+
+Any of these could be added later but don't yet exist.  Any volunteers?
+
+* Show individual exposures (multiple exposures are coadded prior to display)
+* Show errors and masks
+* Show the Nth best fit instead of just the best fit
+* Restframe wavelengths
+* User-defined smoothing
+* User-defined redshift
+* Highlight common emission / absorption lines
+* Visual inspection interface for saving user-determined truth
+* Buttons for next/previous
+* More target info like mags and shapes
+* Imaging survey thumbnails or links
+
+<hr/>
+**Stephen Bailey**<br/>
+Lawrence Berkeley National Lab<br/>
+Spring 2018
