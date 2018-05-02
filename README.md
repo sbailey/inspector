@@ -51,9 +51,10 @@ save the plot if you want to send it to someone else.
 
 ![Inspector Screenshot](screenshot.png)
 
-## What is doesn't do (yet)
+## What it doesn't do (yet)
 
-Any of these could be added later but don't yet exist.  Any volunteers?
+Any of these could be added later but don't yet exist.
+If you really want a feature, please consider contributing it.
 
 * Show individual exposures (multiple exposures are coadded prior to display)
 * Show errors and masks
@@ -66,6 +67,8 @@ Any of these could be added later but don't yet exist.  Any volunteers?
 * Buttons for next/previous
 * More target info like mags and shapes
 * Imaging survey thumbnails or links
+* Viewing spectra that don't yet have redshift fits
+* Filtering to individual exposures or tiles
 
 <hr/>
 **Stephen Bailey** <br/>
