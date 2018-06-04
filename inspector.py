@@ -197,22 +197,32 @@ def coadd_targets(spectra, targetids=None):
     return Spectra(spectra.bands, wave, flux, ivar,
             mask=None, resolution_data=rdat, fibermap=fibermap)
 
+def load_spectra(specfile, zbestfile=None):
+    '''TODO: document'''
+    if zbestfile is None:
+        specdir, basename = os.path.split(specfile)
+        if not basename.startswith('spectra'):
+            raise ValueError("Can't derive zbest filename if spectra filename {} doesn't match spectra*.fits".format(basename))
+        zbestfile = os.path.join(specdir, basename.replace('spectra', 'zbest'))
 
-class Inspector(object):
+        zbest = Table.read(zbestfile, 'ZBEST')
+        spectra = coadd_targets(desispec.io.read_spectra(specfile),
+                targetids=zbest['TARGETID'])
+
+    return Inspector(spectra, zbest)
+
+class Inspector(): 
     """An interface to plotting spectra with Bokeh.
 
     Parameters
     ----------
-    basedir : :class:`str`
-        Path to the directory containing spectrum files.
+    spectra : :class:`desispec.spectra.Spectra` object
+    zbest : Table of zbest output from redrock
     """
 
-    def __init__(self, basedir):
-        specfile = glob.glob(os.path.join(basedir, 'spectra-*.fits'))[0]
-        zbestfile = glob.glob(os.path.join(basedir, 'zbest-*.fits'))[0]
-        self.zbest = Table.read(zbestfile, 'ZBEST')
-        self.spectra = coadd_targets(desispec.io.read_spectra(specfile),
-                                     targetids=self.zbest['TARGETID'])
+    def __init__(self, spectra, zbest):
+        self.zbest = zbest
+        self.spectra = spectra
         self.templates = read_templates()
         self.nspec = len(self.zbest)
 
