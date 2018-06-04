@@ -50,6 +50,8 @@ save the plot if you want to send it to someone else.
   and BGS_TARGET.
 * Imaging survey thumbnails and links.
 * Highlight common emission / absorption lines.
+* Buttons for navigating previous/next target
+* Buttons for saving visual inspection results before moving to next target.
 
 ![Inspector Screenshot](screenshot.png)
 
@@ -64,13 +66,13 @@ If you really want a feature, please consider contributing it.
 * Restframe wavelengths
 * User-defined smoothing
 * User-defined redshift
-* Visual inspection interface for saving user-determined truth
-* Buttons for next/previous
 * More target info like mags and shapes
+* Displaying model of 2D sky-subtracted raw data
 * Viewing spectra that don't yet have redshift fits
 * Filtering to individual exposures or tiles
 
 <hr/>
-**Stephen Bailey** <br/>
-Lawrence Berkeley National Lab<br/>
+**Stephen Bailey** Lawrence Berkeley National Lab<br/>
+**Benjamin Weaver** National Optical Astronomy Observatory<br/>
+
 Spring 2018

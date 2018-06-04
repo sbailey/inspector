@@ -10,6 +10,9 @@ import numpy as np
 
 from astropy.table import Table
 
+import ipywidgets as widgets
+from IPython.display import display
+
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
 from bokeh.models import (CustomJS, ColumnDataSource, Label, Legend,
@@ -26,7 +29,6 @@ from desitarget.targetmask import desi_mask, bgs_mask, mws_mask
 
 import redrock.templates
 from redrock.rebin import trapz_rebin
-
 
 lines = [
     #
@@ -105,6 +107,14 @@ def airtovac(l):
         fact = 1.0 + 5.792105e-2/(238.0185 - sigma2) + 1.67917e-3/(57.362 - sigma2)
         vac = l*fact
     return vac
+
+#- Mapping of human friendly strings to integers for visual scan results
+scan_results = {
+    'flag': -1, -1: 'flag',     #- flag for data expert followup
+    'no':    0,  0: 'no',           #- wrong redshift
+    'maybe': 1,  1: 'maybe',     #- redshift might be right
+    'yes':   2,  2: 'yes',         #- redshift is right
+}
 
 def read_templates():
     """Retrieve redrock templates.
@@ -195,7 +205,8 @@ def coadd_targets(spectra, targetids=None):
             rdat[channel][i] = outrdat
 
     return Spectra(spectra.bands, wave, flux, ivar,
-            mask=None, resolution_data=rdat, fibermap=fibermap)
+            mask=None, resolution_data=rdat, fibermap=fibermap,
+            meta=spectra.meta)
 
 def load_spectra(specfile, zbestfile=None):
     '''TODO: document'''
@@ -236,6 +247,15 @@ class Inspector():
         self._emission = False
         self._absorption = False
         self.print_targets_info()
+        
+        #- dictionary for holding results of visual scan
+        self.visual_scan = Table(dtype=[
+            ('targetid', int),
+            ('scanner', 'S16'),
+            ('z', float),
+            ('result', 'int16'),
+        ])
+        
         output_notebook()
 
     @property
@@ -354,6 +374,7 @@ class Inspector():
 
         #- Repeatd code...
         self._update()
+        self.inspect()
 
     def _cutout(self, ra, dec, zoom=12, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
@@ -407,6 +428,58 @@ class Inspector():
                 self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
                                                             ivar=xivar, model=xmodel))
         return izbest
+
+    def inspect(self):
+        def callback(source):
+            if source.description == 'prev':
+                self.prev()
+            elif source.description == 'next':
+                self.next()
+            elif source.description in ['yes', 'maybe', 'no', 'flag']:
+                targetid = self.zbest['TARGETID'][self.izbest]
+                z = self.zbest['Z'][self.izbest]
+
+                #- remove previous result if needed
+                if targetid in self.visual_scan['targetid']:
+                    ii = np.where(self.visual_scan['targetid'] == targetid)[0]
+                    self.visual_scan.remove_rows(ii)
+
+                #- Add new visual scan result
+                self.visual_scan.add_row(dict(
+                    targetid=targetid,
+                    scanner=os.getenv('USER'),
+                    z=z,
+                    result=scan_results[source.description],
+                ))
+                self.next()
+            else:
+                raise ValueError('Unknown button {}'.format(source.description))
+
+        buttons = list()
+        layout = widgets.Layout(width='60px')
+        buttons.append(widgets.Button(
+            description='prev', tooltip='Go to previous target',
+            layout=layout))
+        buttons.append(widgets.Button(
+            description='flag', tooltip='Flag for more inspection',
+            layout=layout, button_style='warning'))
+        buttons.append(widgets.Button(
+            description='no', tooltip='Redshift is not correct',
+            layout=layout, button_style='danger'))
+        buttons.append(widgets.Button(
+            description='maybe', tooltip='Uncertain if redshift is correct',
+            layout=layout, button_style='primary'))
+        buttons.append(widgets.Button(
+            description='yes', tooltip='Confident that redshift is correct',
+            layout=layout, button_style='success'))
+        buttons.append(widgets.Button(
+            description='next', tooltip='Skip to next target without recording yes/no/maybe',
+            layout=layout))
+
+        for b in buttons:
+            b.on_click(callback)
+
+        display(widgets.HBox(buttons))
 
     def next(self):
         if self.ispec+1 < self.nspec:
