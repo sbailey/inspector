@@ -113,13 +113,25 @@ def coadd_targets(spectra, targetids=None):
             mask=None, resolution_data=rdat, fibermap=fibermap)
 
 
+def load_spectra(specfile, zbestfile=None):
+    '''TODO: document'''
+    if zbestfile is None:
+        specdir, basename = os.path.split(specfile)
+        if not basename.startswith('spectra'):
+            raise ValueError("Can't derive zbest filename if spectra filename {} doesn't match spectra*.fits".format(basename))
+        zbestfile = os.path.join(specdir, basename.replace('spectra', 'zbest'))
+
+        zbest = Table.read(zbestfile, 'ZBEST')
+        spectra = coadd_targets(desispec.io.read_spectra(specfile),
+                targetids=zbest['TARGETID'])
+
+    return Inspector(spectra, zbest)
+
 class Inspector(): 
-    def __init__(self, basedir):
-        specfile = glob.glob(basedir+'/spectra-*.fits')[0]
-        zbestfile = glob.glob(basedir+'/zbest-*.fits')[0]
-        self.zbest = Table.read(zbestfile, 'ZBEST')
-        self.spectra = coadd_targets(desispec.io.read_spectra(specfile),
-                targetids=self.zbest['TARGETID'])
+    def __init__(self, spectra, zbest):
+        '''TODO: document'''
+        self.zbest = zbest
+        self.spectra = spectra
         self.templates = read_templates()
         self.nspec = len(self.zbest)
 
