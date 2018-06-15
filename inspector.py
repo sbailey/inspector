@@ -231,8 +231,6 @@ class Inspector():
                          x_range=(0, 256), y_range=(0, 256),
                          output_backend="webgl",
                          toolbar_location='above', tools=[])
-        # self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
-        #              self.spectra.fibermap[self.ispec]['DEC_TARGET'])
         self.targetdiv = Div(text='Hello<br/>There')
 
         #- Text area
@@ -250,8 +248,9 @@ class Inspector():
     def _cutout(self, ra, dec, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
         """
-        self.im.image_url(["http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom=12&layer={2}".format(ra, dec, layer)],
-                          1, 1, 256, 256, anchor='bottom_left')
+        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom=14&layer={2}".format(ra, dec, layer)
+        self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
+        return u
 
     def _set_ylim(self):
         ymin = ymax = 0.0
@@ -344,8 +343,9 @@ class Inspector():
         info.append('</dl>')
         self.infodiv.text = ''.join(info)
 
-        self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
+        targeturl = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
         targetinfo = ['<dl style="font-size:small;">']
+        targetinfo.append('<dt>Viewer Link</dt><dd><a href="{0}">{0}</a></dd>'.format(targeturl))
         targetinfo.append('<dt>RA</dt><dd>{0:.6f}</dd>'.format(fibermap['RA_TARGET']))
         targetinfo.append('<dt>DEC</dt><dd>{0:.6f}</dd>'.format(fibermap['DEC_TARGET']))
         targetinfo.append('</dl>')
