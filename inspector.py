@@ -234,7 +234,8 @@ class Inspector():
         #- Text area
         self.infodiv = Div(text='Hello<br/>There')
 
-        self.plot_handle = show(row(column(self.im, self.infodiv), p,
+        self.plot_handle = show(row(column(self.im, widgetbox(self.targetdiv)),
+                                    p,
                                     column(pz, widgetbox(self.infodiv))),
                 notebook_handle=True)
         # self.plot_handle = show(p, notebook_handle=True)
@@ -330,7 +331,7 @@ class Inspector():
         info.append('{0:d}/{1:d}'.format(self.ispec+1, self.spectra.num_spectra()))
         info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
         if zb['ZWARN']:
-            info.append('<dt style="color:orangered;">ZWARN</dt><dd>{0:d}</dd>'.format(
+            info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
                         zb['ZWARN']))
         info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
             ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
