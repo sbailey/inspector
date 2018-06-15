@@ -245,12 +245,13 @@ class Inspector():
         #- Repeatd code...
         self._update()
 
-    def _cutout(self, ra, dec, layer='sdss2'):
+    def _cutout(self, ra, dec, zoom=12, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
         """
-        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom=14&layer={2}".format(ra, dec, layer)
+        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
+        v = "http://legacysurvey.org/viewer/?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
         self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
-        return u
+        return v
 
     def _set_ylim(self):
         ymin = ymax = 0.0
@@ -344,8 +345,9 @@ class Inspector():
         self.infodiv.text = ''.join(info)
 
         targeturl = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
+        targetopen = "window.open('{0}', '_blank');".format(targeturl)
         targetinfo = ['<dl style="font-size:small;">']
-        targetinfo.append('<dt>Viewer Link</dt><dd><a href="{0}">{0}</a></dd>'.format(targeturl))
+        targetinfo.append('<dt>Viewer Link</dt><dd><a onclick="{0}">DECaLS Image Viewer</a></dd>'.format(targetopen))
         targetinfo.append('<dt>RA</dt><dd>{0:.6f}</dd>'.format(fibermap['RA_TARGET']))
         targetinfo.append('<dt>DEC</dt><dd>{0:.6f}</dd>'.format(fibermap['DEC_TARGET']))
         targetinfo.append('</dl>')
