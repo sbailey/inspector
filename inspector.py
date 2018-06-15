@@ -231,6 +231,8 @@ class Inspector():
                          x_range=(0, 256), y_range=(0, 256),
                          output_backend="webgl",
                          toolbar_location='above', tools=[])
+        u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
+                         self.spectra.fibermap[self.ispec]['DEC_TARGET'])
         self.targetdiv = Div(text='Hello<br/>There')
 
         #- Text area
