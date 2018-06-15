@@ -113,7 +113,7 @@ def coadd_targets(spectra, targetids=None):
             mask=None, resolution_data=rdat, fibermap=fibermap)
 
 
-class Inspector(): 
+class Inspector():
     def __init__(self, basedir):
         specfile = glob.glob(basedir+'/spectra-*.fits')[0]
         zbestfile = glob.glob(basedir+'/zbest-*.fits')[0]
@@ -131,12 +131,12 @@ class Inspector():
         self.xdata = dict()    #- low resolution
         for channel in ['b', 'r', 'z']:
             izbest, (xwave, xflux, xmodel), (wave, flux, model) = \
-                    self._get_data(0, channel)            
+                    self._get_data(0, channel)
             self.data[channel] = ColumnDataSource(
                     dict(wave=wave, flux=flux, model=model))
             self.xdata[channel] = ColumnDataSource(
                     dict(wave=xwave, flux=xflux, model=xmodel))
-        
+
         self.ispec = 0
         self.izbest = izbest
         self.print_targets_info()
@@ -188,7 +188,7 @@ class Inspector():
                 self.xdata['z'].data['wave'][-1]]
         ytmp = [0,0]
         p.line(xtmp, ytmp, color='black', alpha=0.5)
-            
+
         p.yaxis.axis_label = 'Flux [1e-17 erg/s/cm2/A]'
         p.xaxis.axis_label = 'Wavelength [A]'
         p.min_border_left = 60
@@ -216,24 +216,44 @@ class Inspector():
         pz.x_range.end = 3727*(1+z) + 100
         self.pz = pz
 
-        #- Callback to update zoom window x-range 
+        #- Callback to update zoom window x-range
         def callback(zoomplot):
             return CustomJS(args=dict(xr=zoomplot.x_range), code="""
                 xr.start = cb_obj.x - 100;
                 xr.end = cb_obj.x + 100;
             """)
-    
+
         p.js_on_event(bokeh.events.MouseMove, callback(pz))
+        #
+        # Targeting information
+        #
+        self.im = figure(title=None, plot_width=256, plot_height=256,
+                         x_range=(0, 256), y_range=(0, 256),
+                         output_backend="webgl",
+                         toolbar_location='above', tools=[])
+        u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
+                         self.spectra.fibermap[self.ispec]['DEC_TARGET'])
+        self.targetdiv = Div(text='Hello<br/>There')
 
         #- Text area
         self.infodiv = Div(text='Hello<br/>There')
 
-        self.plot_handle = show(row(p, column(pz, widgetbox(self.infodiv))),
-                notebook_handle=True)
+        self.plot_handle = show(row(column(self.im, widgetbox(self.targetdiv)),
+                                    p,
+                                    column(pz, widgetbox(self.infodiv))),
+                                notebook_handle=True)
         # self.plot_handle = show(p, notebook_handle=True)
 
         #- Repeatd code...
         self._update()
+
+    def _cutout(self, ra, dec, zoom=12, layer='sdss2'):
+        """Image plot centered on `ra`, `dec`.
+        """
+        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
+        v = "http://legacysurvey.org/viewer/?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
+        self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
+        return v
 
     def _set_ylim(self):
         ymin = ymax = 0.0
@@ -244,7 +264,7 @@ class Inspector():
             ymax = max(ymax, np.percentile(flux, 98))
             ymin = min(ymin, np.percentile(flux, 10))
             ymin = min(0, ymin)
-    
+
         self.p.y_range.start = ymin
         self.p.y_range.end = ymax
 
@@ -259,13 +279,13 @@ class Inspector():
         tx = self.templates[spectype]
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
-        
+
         ww = np.arange(wave[0], wave[-1], 3)
         xflux = resample_flux(ww, wave, flux)
         xmodel = resample_flux(ww, tx.wave*(1+z), model)
-        
+
         model = resample_flux(wave, tx.wave*(1+z), model)
-        
+
         return izbest, (ww, xflux, xmodel), (wave, flux, model)
 
     def next(self):
@@ -274,18 +294,18 @@ class Inspector():
         else:
             print('end of targets')
         self._update()
-    
+
     def prev(self):
         if self.ispec > 0:
             self.ispec -= 1
         else:
             print('Already at first target')
         self._update()
-    
+
     def _update(self):
         for channel in ['b', 'r', 'z']:
             izbest, (xwave, xflux, xmodel), (wave, flux, model) = \
-                    self._get_data(self.ispec, channel)            
+                    self._get_data(self.ispec, channel)
             self.xdata[channel].data['wave'] = xwave
             self.xdata[channel].data['flux'] = xflux
             self.xdata[channel].data['model'] = xmodel
@@ -295,9 +315,9 @@ class Inspector():
 
         self.izbest = izbest
         zb = self.zbest[self.izbest]
-        
+
         self._set_ylim()
-        
+
         z = zb['Z']
         self.pz.x_range.start = 3727*(1+z) - 100
         self.pz.x_range.end = 3727*(1+z) + 100
@@ -308,25 +328,32 @@ class Inspector():
             zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
         self.p.title.text = title
 
-        info = list()
-        info.append('{}/{}'.format(self.ispec+1, self.spectra.num_spectra()))
-        info.append('ID {}'.format(zb['TARGETID']))
+        info = ['<dl style="font-size:small;">']
+        info.append('<dt>Spectrum</dt><dd>{0:d}/{1:d}</dd>'.format(self.ispec+1, self.spectra.num_spectra()))
+        info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
         if zb['ZWARN']:
-            info.append('<font color="orangered"><b>ZWARN={}</b></font>'.format(
-                zb['ZWARN']))
-        info.append('<b>DESI_TARGET</b><br/>&nbsp;&nbsp;{}'.format(
+            info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
+                        zb['ZWARN']))
+        info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
             ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
         if fibermap['BGS_TARGET']:
-            info.append('<b>BGS_TARGET</b><br/>&nbsp;&nbsp;{}'.format(
+            info.append('<dt>BGS_TARGET</dt><dd>{0}</dd>'.format(
                 ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
 
         if fibermap['MWS_TARGET']:
-            info.append('<b>MWS_TARGET</b><br/>&nbsp;&nbsp;{}'.format(
+            info.append('<dt>MWS_TARGET</dt><dd>{0}</dd>'.format(
                 ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        info.append('</dl>')
+        self.infodiv.text = ''.join(info)
 
-        info = '<br/>\n'.join(info)
-        self.infodiv.text = '''<p style="font-size:0.8em">{}</p>'''.format(info)
+        targeturl = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
+        targetopen = "window.open('{0}', '_blank');".format(targeturl)
+        targetinfo = ['<dl style="font-size:small;">']
+        targetinfo.append('<dt>Viewer Link</dt><dd><a onclick="{0}">DECaLS Image Viewer</a></dd>'.format(targetopen))
+        targetinfo.append('<dt>RA</dt><dd>{0:.6f}</dd>'.format(fibermap['RA_TARGET']))
+        targetinfo.append('<dt>DEC</dt><dd>{0:.6f}</dd>'.format(fibermap['DEC_TARGET']))
+        targetinfo.append('</dl>')
+        self.targetdiv.text = ''.join(targetinfo)
+
 
         push_notebook(handle=self.plot_handle)
-
-
