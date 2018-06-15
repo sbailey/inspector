@@ -226,7 +226,11 @@ class Inspector():
         p.js_on_event(bokeh.events.MouseMove, callback(pz))
         #
         # Targeting information
-        #self.spectra.fibermap[self.ispec]['RA_TARGET']
+        #
+        self.im = figure(title=None, plot_width=256, plot_height=256,
+                         x_range=(0, 256), y_range=(0, 256),
+                         output_backend="webgl",
+                         toolbar_location='above', tools=[])
         self.im = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
                                self.spectra.fibermap[self.ispec]['DEC_TARGET'])
         self.targetdiv = Div(text='Hello<br/>There')
@@ -237,7 +241,7 @@ class Inspector():
         self.plot_handle = show(row(column(self.im, widgetbox(self.targetdiv)),
                                     p,
                                     column(pz, widgetbox(self.infodiv))),
-                notebook_handle=True)
+                                notebook_handle=True)
         # self.plot_handle = show(p, notebook_handle=True)
 
         #- Repeatd code...
@@ -246,13 +250,8 @@ class Inspector():
     def _cutout(self, ra, dec, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
         """
-        im = figure(title=None, plot_width=256, plot_height=256,
-                    x_range=(0, 256), y_range=(0, 256),
-                    output_backend="webgl",
-                    toolbar_location='above', tools=[])
-        im.image_url(["http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom=12&layer={2}".format(ra, dec, layer)],
-                     1, 1, 256, 256, anchor='bottom_left')
-        return im
+        self.im.image_url(["http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom=12&layer={2}".format(ra, dec, layer)],
+                          1, 1, 256, 256, anchor='bottom_left')
 
     def _set_ylim(self):
         ymin = ymax = 0.0
@@ -328,7 +327,7 @@ class Inspector():
         self.p.title.text = title
 
         info = ['<dl style="font-size:small;">']
-        info.append('{0:d}/{1:d}'.format(self.ispec+1, self.spectra.num_spectra()))
+        info.append('<dt>Spectrum</dt><dd>{0:d}/{1:d}</dd>'.format(self.ispec+1, self.spectra.num_spectra()))
         info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
         if zb['ZWARN']:
             info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
@@ -345,7 +344,7 @@ class Inspector():
         info.append('</dl>')
         self.infodiv.text = ''.join(info)
 
-        self.im = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
+        self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
         targetinfo = ['<dl style="font-size:small;">']
         targetinfo.append('<dt>RA</dt><dd>{0:.6f}</dd>'.format(fibermap['RA_TARGET']))
         targetinfo.append('<dt>DEC</dt><dd>{0:.6f}</dd>'.format(fibermap['DEC_TARGET']))
