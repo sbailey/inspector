@@ -13,7 +13,7 @@ from astropy.table import Table
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
 from bokeh.models import (CustomJS, ColumnDataSource, Label, Legend,
-                          Range1d Slider, Span)
+                          Range1d, Slider, Span)
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models.widgets import Div
 import bokeh.palettes
