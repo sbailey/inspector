@@ -397,7 +397,7 @@ class Inspector():
         push_notebook(handle=self.plot_handle)
 
     def _update_lines(self):
-        for l in lines:
+        for i, l in enumerate(lines):
             shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
             visible = (self._line_in_range(shiftedWave) and
                        ((l['emission'] and self._emission) or
