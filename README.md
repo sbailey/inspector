@@ -48,7 +48,8 @@ save the plot if you want to send it to someone else.
   on each one.
 * Shows TARGETID and targeting bits from DESI_TARGET, MWS_TARGET,
   and BGS_TARGET.
-* Imaging survey thumbnails and links
+* Imaging survey thumbnails and links.
+* Highlight common emission / absorption lines.
 
 ![Inspector Screenshot](screenshot.png)
 
@@ -63,7 +64,6 @@ If you really want a feature, please consider contributing it.
 * Restframe wavelengths
 * User-defined smoothing
 * User-defined redshift
-* Highlight common emission / absorption lines
 * Visual inspection interface for saving user-determined truth
 * Buttons for next/previous
 * More target info like mags and shapes

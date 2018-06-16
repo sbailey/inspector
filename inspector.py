@@ -13,7 +13,7 @@ from astropy.table import Table
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
 from bokeh.models import Legend, Range1d
-from bokeh.models import CustomJS, ColumnDataSource, Slider
+from bokeh.models import CustomJS, ColumnDataSource, Slider, Span, Label
 from bokeh.layouts import row, column
 from bokeh.layouts import widgetbox
 from bokeh.models.widgets import Div
@@ -27,6 +27,74 @@ from desitarget.targetmask import desi_mask, bgs_mask, mws_mask
 
 import redrock.templates
 from redrock.rebin import trapz_rebin
+
+
+lines = [
+    #
+    # This is the set of emission lines from the spZline files.
+    # See $IDLSPEC2D_DIR/etc/emlines.par
+    # Wavelengths are in air for lambda > 2000, vacuum for lambda < 2000.
+    #
+    {"name" : "Ly-α",           "lambda" : 1215.67,  "emission": True },
+    {"name" : "N V 1240",       "lambda" : 1240.81,  "emission": True },
+    {"name" : "C IV 1549",      "lambda" : 1549.48,  "emission": True },
+    {"name" : "He II 1640",     "lambda" : 1640.42,  "emission": True },
+    {"name" : "C III] 1908",    "lambda" : 1908.734, "emission": True },
+    {"name" : "Mg II 2799",     "lambda" : 2799.49,  "emission": True },
+    {"name" : "[O II] 3725",    "lambda" : 3726.032, "emission": True },
+    {"name" : "[O II] 3727",    "lambda" : 3728.815, "emission": True },
+    {"name" : "[Ne III] 3868",  "lambda" : 3868.76,  "emission": True },
+    {"name" : "Hζ",             "lambda" : 3889.049, "emission": True },
+    {"name" : "[Ne III] 3970",  "lambda" : 3970.00,  "emission": True },
+    {"name" : "Hδ",             "lambda" : 4101.734, "emission": True },
+    {"name" : "Hγ",             "lambda" : 4340.464, "emission": True },
+    {"name" : "[O III] 4363",   "lambda" : 4363.209, "emission": True },
+    {"name" : "He II 4685",     "lambda" : 4685.68,  "emission": True },
+    {"name" : "Hβ",             "lambda" : 4861.325, "emission": True },
+    {"name" : "[O III] 4959",   "lambda" : 4958.911, "emission": True },
+    {"name" : "[O III] 5007",   "lambda" : 5006.843, "emission": True },
+    {"name" : "He II 5411",     "lambda" : 5411.52,  "emission": True },
+    {"name" : "[O I] 5577",     "lambda" : 5577.339, "emission": True },
+    {"name" : "[N II] 5755",    "lambda" : 5754.59,  "emission": True },
+    {"name" : "He I 5876",      "lambda" : 5875.68,  "emission": True },
+    {"name" : "[O I] 6300",     "lambda" : 6300.304, "emission": True },
+    {"name" : "[S III] 6312",   "lambda" : 6312.06,  "emission": True },
+    {"name" : "[O I] 6363",     "lambda" : 6363.776, "emission": True },
+    {"name" : "[N II] 6548",    "lambda" : 6548.05,  "emission": True },
+    {"name" : "Hα",             "lambda" : 6562.801, "emission": True },
+    {"name" : "[N II] 6583",    "lambda" : 6583.45,  "emission": True },
+    {"name" : "[S II] 6716",    "lambda" : 6716.44,  "emission": True },
+    {"name" : "[S II] 6730",    "lambda" : 6730.82,  "emission": True },
+    {"name" : "[Ar III] 7135",  "lambda" : 7135.790, "emission": True },
+    #
+    # Absorption lines
+    #
+    {"name" : "Hζ",             "lambda" : 3889.049, "emission": False },
+    {"name" : "K (Ca II 3933)", "lambda" : 3933.7,   "emission": False },
+    {"name" : "H (Ca II 3968)", "lambda" : 3968.5,   "emission": False },
+    {"name" : "Hε",             "lambda" : 3970.072, "emission": False },
+    {"name" : "Hδ",             "lambda" : 4101.734, "emission": False },
+    {"name" : "G (Ca I 4307)",  "lambda" : 4307.74,  "emission": False },
+    {"name" : "Hγ",             "lambda" : 4340.464, "emission": False },
+    {"name" : "Hβ",             "lambda" : 4861.325, "emission": False },
+    {"name" : "Mg I 5175",      "lambda" : 5175.0,   "emission": False },
+    {"name" : "D2 (Na I 5889)", "lambda" : 5889.95,  "emission": False },
+    # {"name" : "D (Na I doublet)","lambda": 5892.9,   "emission": False },
+    {"name" : "D1 (Na I 5895)", "lambda" : 5895.92,  "emission": False },
+    {"name" : "Hα",             "lambda" : 6562.801, "emission": False },
+    ]
+
+def airtovac(l):
+    """Convert air wavelengths to vacuum wavelengths. Don't convert less than 2000 Å.
+    """
+    if l < 2000.0:
+        return l;
+    vac = l
+    for iter in range(2):
+        sigma2 = (1.0e4/vac)*(1.0e4/vac)
+        fact = 1.0 + 5.792105e-2/(238.0185 - sigma2) + 1.67917e-3/(57.362 - sigma2)
+        vac = l*fact
+    return vac
 
 def read_templates():
     #- redirect stdout to silence chatty redrock
@@ -139,6 +207,8 @@ class Inspector():
 
         self.ispec = 0
         self.izbest = izbest
+        self.emission = True
+        self.absorption = True
         self.print_targets_info()
         output_notebook()
 
@@ -189,8 +259,10 @@ class Inspector():
         ytmp = [0,0]
         p.line(xtmp, ytmp, color='black', alpha=0.5)
 
-        p.yaxis.axis_label = 'Flux [1e-17 erg/s/cm2/A]'
-        p.xaxis.axis_label = 'Wavelength [A]'
+        p.yaxis.axis_label = 'Flux [10⁻¹⁷ erg cm⁻² s⁻¹ Å⁻¹]'
+        p.xaxis.axis_label = 'Wavelength [Å]'
+        p.xaxis.axis_label_text_font_style = 'normal'
+        p.yaxis.axis_label_text_font_style = 'normal'
         p.min_border_left = 60
         p.min_border_bottom = 40
         self._set_ylim()
@@ -224,6 +296,9 @@ class Inspector():
             """)
 
         p.js_on_event(bokeh.events.MouseMove, callback(pz))
+        #
+        # Lines.
+        #
         #
         # Targeting information
         #
@@ -302,6 +377,47 @@ class Inspector():
             print('Already at first target')
         self._update()
 
+    def emission(self, toggle):
+        """Toggle the display of known emission lines.
+        """
+        self.emission = bool(toggle)
+        self._update_lines()
+
+    def absorption(self, toggle):
+        """Toggle the display of known absorption lines.
+        """
+        self.absorption = bool(toggle)
+        self._update_lines()
+
+    def _display_lines(self, z):
+        for i, l in enumerate(lines):
+            visible = (l['emission'] and self.emission) or (self.absorption and not l['emission'])
+            if l['emission']:
+                lc = 'blue'
+                yo = 150
+            else:
+                lc = 'red'
+                yo = 50
+            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
+            span = Span(location=shiftedWave, dimension='height', line_color=lc,
+                        line_dash='solid', line_width=3, line_alpha=0.3)
+            span.visible = visible
+            # self.p.renderers.extend([span,])
+            self.p.add_layout(span)
+            lines['span'] = span
+            label = Label(x=shiftedWave, y=yo + 20*(i % 3), y_units='screen', text=l['name'], text_color=lc)
+            label.visible = visible
+            self.p.add_layout(label)
+            lines['label'] = label
+
+    def _update_lines(self):
+        """Only change the visibility of existing lines.
+        """
+        for i, l in enumerate(lines):
+            visible = (l['emission'] and self.emission) or (self.absorption and not l['emission'])
+            lines['span'].visible = visible
+            lines['label'].visible = visible
+
     def _update(self):
         for channel in ['b', 'r', 'z']:
             izbest, (xwave, xflux, xmodel), (wave, flux, model) = \
@@ -322,6 +438,7 @@ class Inspector():
         self.pz.x_range.start = 3727*(1+z) - 100
         self.pz.x_range.end = 3727*(1+z) + 100
 
+        self._display_lines(z)
         fibermap = self.spectra.fibermap[self.ispec]
 
         title = '{} z={:.4f} zwarn={}'.format(
