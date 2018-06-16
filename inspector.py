@@ -407,11 +407,14 @@ class Inspector():
                 l['span'].set(location=shiftedWave)
                 l['label'].set(x=shiftedWave)
             else:
-                l['span'] = Span(location=shiftedWave, dimension='height', line_color=lc,
-                            line_dash='solid', line_width=3, line_alpha=0.3)
+                l['span'] = Span(location=shiftedWave, dimension='height',
+                                 line_color=lc, line_dash='solid',
+                                 line_width=3, line_alpha=0.3)
                 # self.p.renderers.extend([span,])
                 self.p.add_layout(l['span'])
-                label = Label(x=shiftedWave, y=yo + 20*(i % 3), y_units='screen', text=l['name'], text_color=lc)
+                l['label'] = Label(x=shiftedWave, y=yo + 20*(i % 3),
+                                   y_units='screen',
+                                   text=l['name'], text_color=lc)
                 self.p.add_layout(l['label'])
             l['span'].visible = visible
             l['label'].visible = visible
