@@ -207,8 +207,8 @@ class Inspector():
 
         self.ispec = 0
         self.izbest = izbest
-        self.emission = True
-        self.absorption = True
+        self._emission = True
+        self._absorption = True
         self.print_targets_info()
         output_notebook()
 
@@ -380,22 +380,23 @@ class Inspector():
     def emission(self, toggle):
         """Toggle the display of known emission lines.
         """
-        self.emission = bool(toggle)
+        self._emission = bool(toggle)
         self._update_lines()
 
     def absorption(self, toggle):
         """Toggle the display of known absorption lines.
         """
-        self.absorption = bool(toggle)
+        self._absorption = bool(toggle)
         self._update_lines()
 
-    def _display_lines(self, z):
+    def _display_lines(self):
+        z = self.zbest[self.izbest]['Z']
         for i, l in enumerate(lines):
             shiftedWave = airtovac(l['lambda'])*(1.0 + z)
             in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
                         (shiftedWave < self.xdata['z'].data['wave'].max()))
-            visible = in_range and ((l['emission'] and self.emission) or
-                                    (self.absorption and not l['emission']))
+            visible = in_range and ((l['emission'] and self._emission) or
+                                    (self._absorption and not l['emission']))
             if l['emission']:
                 lc = 'blue'
                 yo = 150
@@ -418,8 +419,13 @@ class Inspector():
     def _update_lines(self):
         """Only change the visibility of existing lines.
         """
+        z = self.zbest[self.izbest]['Z']
         for i, l in enumerate(lines):
-            visible = (l['emission'] and self.emission) or (self.absorption and not l['emission'])
+            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
+            in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
+                        (shiftedWave < self.xdata['z'].data['wave'].max()))
+            visible = in_range and ((l['emission'] and self._emission) or
+                                    (self._absorption and not l['emission']))
             l['span'].visible = visible
             l['label'].visible = visible
 
@@ -443,7 +449,7 @@ class Inspector():
         self.pz.x_range.start = 3727*(1+z) - 100
         self.pz.x_range.end = 3727*(1+z) + 100
 
-        self._display_lines(z)
+        self._display_lines()
         fibermap = self.spectra.fibermap[self.ispec]
 
         title = '{} z={:.4f} zwarn={}'.format(
