@@ -391,24 +391,29 @@ class Inspector():
 
     def _display_lines(self, z):
         for i, l in enumerate(lines):
-            visible = (l['emission'] and self.emission) or (self.absorption and not l['emission'])
+            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
+            in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
+                        (shiftedWave < self.xdata['z'].data['wave'].max()))
+            visible = in_range and ((l['emission'] and self.emission) or
+                                    (self.absorption and not l['emission']))
             if l['emission']:
                 lc = 'blue'
                 yo = 150
             else:
                 lc = 'red'
                 yo = 50
-            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
-            span = Span(location=shiftedWave, dimension='height', line_color=lc,
-                        line_dash='solid', line_width=3, line_alpha=0.3)
-            span.visible = visible
-            # self.p.renderers.extend([span,])
-            self.p.add_layout(span)
-            l['span'] = span
-            label = Label(x=shiftedWave, y=yo + 20*(i % 3), y_units='screen', text=l['name'], text_color=lc)
-            label.visible = visible
-            self.p.add_layout(label)
-            l['label'] = label
+            if 'span' in l:
+                l['span'].set(location=shiftedWave)
+                l['label'].set(x=shiftedWave)
+            else:
+                l['span'] = Span(location=shiftedWave, dimension='height', line_color=lc,
+                            line_dash='solid', line_width=3, line_alpha=0.3)
+                # self.p.renderers.extend([span,])
+                self.p.add_layout(l['span'])
+                label = Label(x=shiftedWave, y=yo + 20*(i % 3), y_units='screen', text=l['name'], text_color=lc)
+                self.p.add_layout(l['label'])
+            l['span'].visible = visible
+            l['label'].visible = visible
 
     def _update_lines(self):
         """Only change the visibility of existing lines.
