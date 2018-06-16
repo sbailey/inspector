@@ -404,8 +404,8 @@ class Inspector():
                 lc = 'red'
                 yo = 50
             if 'span' in l:
-                l['span'].set(location=shiftedWave)
-                l['label'].set(x=shiftedWave)
+                l['span'].location = shiftedWave
+                l['label'].x = shiftedWave
             else:
                 l['span'] = Span(location=shiftedWave, dimension='height',
                                  line_color=lc, line_dash='solid',
