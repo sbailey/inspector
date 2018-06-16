@@ -404,19 +404,19 @@ class Inspector():
             span.visible = visible
             # self.p.renderers.extend([span,])
             self.p.add_layout(span)
-            lines['span'] = span
+            l['span'] = span
             label = Label(x=shiftedWave, y=yo + 20*(i % 3), y_units='screen', text=l['name'], text_color=lc)
             label.visible = visible
             self.p.add_layout(label)
-            lines['label'] = label
+            l['label'] = label
 
     def _update_lines(self):
         """Only change the visibility of existing lines.
         """
         for i, l in enumerate(lines):
             visible = (l['emission'] and self.emission) or (self.absorption and not l['emission'])
-            lines['span'].visible = visible
-            lines['label'].visible = visible
+            l['span'].visible = visible
+            l['label'].visible = visible
 
     def _update(self):
         for channel in ['b', 'r', 'z']:
