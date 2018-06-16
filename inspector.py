@@ -303,6 +303,7 @@ class Inspector():
         #
         # Lines.
         #
+        self._update_lines()
         #
         # Targeting information
         #
@@ -386,53 +387,47 @@ class Inspector():
         """
         self._emission = bool(toggle)
         self._update_lines()
+        push_notebook(handle=self.plot_handle)
 
     def absorption(self, toggle):
         """Toggle the display of known absorption lines.
         """
         self._absorption = bool(toggle)
         self._update_lines()
+        push_notebook(handle=self.plot_handle)
 
-    def _display_lines(self):
-        for i, l in enumerate(lines):
+    def _update_lines(self):
+        for l in lines:
             shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
-            in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
-                        (shiftedWave < self.xdata['z'].data['wave'].max()))
-            visible = in_range and ((l['emission'] and self._emission) or
-                                    (self._absorption and not l['emission']))
+            visible = (self._line_in_range(shiftedWave) and
+                       ((l['emission'] and self._emission) or
+                        (self._absorption and not l['emission'])))
             if l['emission']:
                 lc = 'blue'
                 yo = 150
             else:
                 lc = 'red'
                 yo = 50
+            span = Span(location=shiftedWave, dimension='height',
+                        line_color=lc, line_dash='solid',
+                        line_width=3, line_alpha=0.3,
+                        visible=visible)
+            label = Label(x=shiftedWave, y=yo + 20*(i % 3),
+                          y_units='screen',
+                          text=l['name'], text_color=lc,
+                          visible=visible)
             if 'span' in l:
-                l['span'].location = shiftedWave
-                l['label'].x = shiftedWave
+                self.p.renderers[l['span']] = span
+                self.p.renderers[l['span'] + 1] = label
             else:
-                l['span'] = Span(location=shiftedWave, dimension='height',
-                                 line_color=lc, line_dash='solid',
-                                 line_width=3, line_alpha=0.3)
-                self.p.add_layout(l['span'])
-                l['label'] = Label(x=shiftedWave, y=yo + 20*(i % 3),
-                                   y_units='screen',
-                                   text=l['name'], text_color=lc)
-                self.p.add_layout(l['label'])
-            l['span'].visible = visible
-            l['label'].visible = visible
+                self.p.add_layout(span)
+                l['span'] = len(self.p.renderers) - 1
+                self.p.add_layout(label)
 
-    def _update_lines(self):
-        """Only change the visibility of existing lines.
+    def _line_in_range(self, l):
+        """True if a spectral line is within the range of the plot.
         """
-        for l in lines:
-            shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
-            in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
-                        (shiftedWave < self.xdata['z'].data['wave'].max()))
-            visible = in_range and ((l['emission'] and self._emission) or
-                                    (self._absorption and not l['emission']))
-            l['span'].visible = visible
-            l['label'].visible = visible
-        push_notebook(handle=self.plot_handle)
+        return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
 
     def _update(self):
         for channel in ['b', 'r', 'z']:
@@ -453,7 +448,7 @@ class Inspector():
         self.pz.x_range.start = 3727*(1 + self.z) - 100
         self.pz.x_range.end = 3727*(1 + self.z) + 100
 
-        self._display_lines()
+        self._update_lines()
         fibermap = self.spectra.fibermap[self.ispec]
 
         title = '{0} z={1:.4f} zwarn={2}'.format(
