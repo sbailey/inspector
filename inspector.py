@@ -12,10 +12,9 @@ from astropy.table import Table
 
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
-from bokeh.models import Legend, Range1d
-from bokeh.models import CustomJS, ColumnDataSource, Slider, Span, Label
-from bokeh.layouts import row, column
-from bokeh.layouts import widgetbox
+from bokeh.models import (CustomJS, ColumnDataSource, Label, Legend,
+                          Range1d Slider, Span)
+from bokeh.layouts import row, column, widgetbox
 from bokeh.models.widgets import Div
 import bokeh.palettes
 import bokeh.events
@@ -212,6 +211,12 @@ class Inspector():
         self.print_targets_info()
         output_notebook()
 
+    @property
+    def z(self):
+        """This is used in several places, so best to make it a property.
+        """
+        return self.zbest[self.izbest]['Z']
+
     def select(self, targetids):
         ii = np.in1d(self.zbest['TARGETID'], targetids)
         self.zbest = self.zbest[ii]
@@ -283,9 +288,8 @@ class Inspector():
             pz.line('wave', 'model', source=self.data[channel],
                     line_color='black', line_width=1, alpha=1.0)
 
-        z = self.zbest['Z'][self.izbest]
-        pz.x_range.start = 3727*(1+z) - 100
-        pz.x_range.end = 3727*(1+z) + 100
+        pz.x_range.start = 3727*(1+self.z) - 100
+        pz.x_range.end = 3727*(1+self.z) + 100
         self.pz = pz
 
         #- Callback to update zoom window x-range
@@ -390,9 +394,8 @@ class Inspector():
         self._update_lines()
 
     def _display_lines(self):
-        z = self.zbest[self.izbest]['Z']
         for i, l in enumerate(lines):
-            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
+            shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
             in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
                         (shiftedWave < self.xdata['z'].data['wave'].max()))
             visible = in_range and ((l['emission'] and self._emission) or
@@ -410,7 +413,6 @@ class Inspector():
                 l['span'] = Span(location=shiftedWave, dimension='height',
                                  line_color=lc, line_dash='solid',
                                  line_width=3, line_alpha=0.3)
-                # self.p.renderers.extend([span,])
                 self.p.add_layout(l['span'])
                 l['label'] = Label(x=shiftedWave, y=yo + 20*(i % 3),
                                    y_units='screen',
@@ -422,15 +424,15 @@ class Inspector():
     def _update_lines(self):
         """Only change the visibility of existing lines.
         """
-        z = self.zbest[self.izbest]['Z']
-        for i, l in enumerate(lines):
-            shiftedWave = airtovac(l['lambda'])*(1.0 + z)
+        for l in lines:
+            shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
             in_range = ((shiftedWave > self.xdata['b'].data['wave'].min()) and
                         (shiftedWave < self.xdata['z'].data['wave'].max()))
             visible = in_range and ((l['emission'] and self._emission) or
                                     (self._absorption and not l['emission']))
             l['span'].visible = visible
             l['label'].visible = visible
+        push_notebook(handle=self.plot_handle)
 
     def _update(self):
         for channel in ['b', 'r', 'z']:
@@ -448,14 +450,13 @@ class Inspector():
 
         self._set_ylim()
 
-        z = zb['Z']
-        self.pz.x_range.start = 3727*(1+z) - 100
-        self.pz.x_range.end = 3727*(1+z) + 100
+        self.pz.x_range.start = 3727*(1 + self.z) - 100
+        self.pz.x_range.end = 3727*(1 + self.z) + 100
 
         self._display_lines()
         fibermap = self.spectra.fibermap[self.ispec]
 
-        title = '{} z={:.4f} zwarn={}'.format(
+        title = '{0} z={1:.4f} zwarn={2}'.format(
             zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
         self.p.title.text = title
 
