@@ -402,27 +402,28 @@ class Inspector():
             visible = (self._line_in_range(shiftedWave) and
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
-            if l['emission']:
-                lc = 'blue'
-                yo = 150
-            else:
-                lc = 'red'
-                yo = 50
-            span = Span(location=shiftedWave, dimension='height',
-                        line_color=lc, line_dash='solid',
-                        line_width=3, line_alpha=0.3,
-                        visible=visible)
-            label = Label(x=shiftedWave, y=yo + 20*(i % 3),
-                          y_units='screen',
-                          text=l['name'], text_color=lc,
-                          visible=visible)
             if 'span' in l:
-                self.p.renderers[l['span']] = span
-                self.p.renderers[l['span'] + 1] = label
+                l['span'].location = shiftedWave
+                l['span'].visible = visible
+                l['label'].x = shiftedWave
+                l['label'].visible = visible
             else:
-                self.p.add_layout(span)
-                l['span'] = len(self.p.renderers) - 1
-                self.p.add_layout(label)
+                if l['emission']:
+                    lc = 'blue'
+                    yo = 150
+                else:
+                    lc = 'red'
+                    yo = 50
+                l['span'] = Span(location=shiftedWave, dimension='height',
+                                 line_color=lc, line_dash='solid',
+                                 line_width=3, line_alpha=0.3,
+                                 visible=visible)
+                l['label'] = Label(x=shiftedWave, y=yo + 20*(i % 3),
+                                   y_units='screen',
+                                   text=l['name'], text_color=lc,
+                                   visible=visible)
+                self.p.add_layout(l['span'])
+                self.p.add_layout(l['label'])
 
     def _line_in_range(self, l):
         """True if a spectral line is within the range of the plot.
