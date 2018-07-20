@@ -33,11 +33,17 @@ from redrock.rebin import trapz_rebin
 
 #- Mapping of human friendly strings to integers for visual scan results
 scan_results = {
-    'flag': -1, -1: 'flag',     #- flag for data expert followup
-    'no':    0,  0: 'no',           #- wrong redshift
-    'maybe': 1,  1: 'maybe',     #- redshift might be right
-    'yes':   2,  2: 'yes',         #- redshift is right
+    'flag':  -1,      #- flag for data expert followup
+    'no':    0,       #- wrong redshift
+    'maybe': 1,       #- redshift might be right
+    'yes':   2,       #- redshift is right
 }
+
+#- invert the map too
+scan_flags = list(scan_results.keys())
+for name in scan_flags:
+    n = scan_results[name]
+    scan_results[n] = name
 
 def read_templates():
     #- redirect stdout to silence chatty redrock
@@ -169,8 +175,13 @@ class Inspector():
             ('targetid', int),
             ('scanner', 'S16'),
             ('z', float),
+            ('spectype', 'S6'),
+            ('subtype', 'S6'),
             ('result', 'int16'),
         ])
+        for name in scan_flags:
+            key = 'VSCAN{:02d}'.format(scan_results[name])
+            self.visual_scan.meta[key] = name
         
         output_notebook()
 
@@ -310,6 +321,8 @@ class Inspector():
             elif source.description in ['yes', 'maybe', 'no', 'flag']:
                 targetid = self.zbest['TARGETID'][self.izbest]
                 z = self.zbest['Z'][self.izbest]
+                spectype = self.zbest['SPECTYPE'][self.izbest]
+                subtype = self.zbest['SUBTYPE'][self.izbest]
 
                 #- remove previous result if needed
                 if targetid in self.visual_scan['targetid']:
@@ -321,6 +334,8 @@ class Inspector():
                     targetid=targetid,
                     scanner=os.getenv('USER'),
                     z=z,
+                    spectype=spectype,
+                    subtype=subtype,
                     result=scan_results[source.description],
                 ))
                 self.next()
