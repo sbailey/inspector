@@ -459,15 +459,18 @@ class Inspector(object):
             else:
                 if l['emission']:
                     lc = 'blue'
-                    y_start = 150
-                    y_end = 140
+                    y_start = 4
+                    y_end = 3
+                    # y_start = 150
+                    # y_end = 140
                 else:
                     lc = 'red'
-                    y_start = 50
-                    y_end = 60
+                    y_start = -4
+                    y_end = -3
+                    # y_start = 50
+                    # y_end = 60
                 l['span'] = Arrow(end=VeeHead(line_color=lc, fill_color=lc),
                                   line_color=lc, line_width=3, line_alpha=0.3,
-                                  start_units='screen', end_units='screen',
                                   x_start=shiftedWave, y_start=y_start,
                                   x_end=shiftedWave, y_end=y_end,
                                   visible=visible)
