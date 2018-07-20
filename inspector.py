@@ -493,7 +493,7 @@ class Inspector(object):
                                   line_color=lc, line_width=2, line_alpha=0.3,
                                   x_start='x_start', y_start='y_start',
                                   x_end='x_end', y_end='y_end',
-                                  source=lineSource, visible=visible)
+                                  source=l['source'], visible=visible)
                 # l['span'] = Span(location=shiftedWave, dimension='height',
                 #                  line_color=lc, line_dash='solid',
                 #                  line_width=3, line_alpha=0.3,
