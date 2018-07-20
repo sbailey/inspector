@@ -449,26 +449,34 @@ class Inspector(object):
             visible = (self._line_in_range(shiftedWave) and
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
+            for channel in ('b', 'r', 'z'):
+                if self.xdata[channel].data['wave'].min() < l < self.xdata[channel].data['wave'].max():
+                    shiftedWave_y = np.interp(shiftedWave,
+                                              self.xdata[channel].data['wave'],
+                                             self.xdata[channel].data['model'])
+                    break
+            if l['emission']:
+                lc = 'blue'
+                y_start = shiftedWave_y*1.2
+                y_end = shiftedWave_y*1.2 - 0.5
+                # y_start = 150
+                # y_end = 140
+            else:
+                lc = 'red'
+                y_start = shiftedWave_y*0.8
+                y_end = shiftedWave_y*0.8 + 0.5
+                # y_start = 50
+                # y_end = 60
             if 'span' in l:
                 l['span'].x_start = shiftedWave
+                l['span'].y_start = y_start
                 l['span'].x_end = shiftedWave
+                l['span'].y_start = y_end
                 # l['span'].location = shiftedWave
                 l['span'].visible = visible
                 l['label'].x = shiftedWave
                 l['label'].visible = visible
             else:
-                if l['emission']:
-                    lc = 'blue'
-                    y_start = 3
-                    y_end = 2
-                    # y_start = 150
-                    # y_end = 140
-                else:
-                    lc = 'red'
-                    y_start = -3
-                    y_end = -2
-                    # y_start = 50
-                    # y_end = 60
                 l['span'] = Arrow(end=VeeHead(line_color=lc, line_alpha=0.3,
                                               fill_color=lc, fill_alpha=0.3),
                                   line_color=lc, line_width=3, line_alpha=0.3,
