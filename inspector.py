@@ -456,6 +456,7 @@ class Inspector(object):
                                               self.xdata[channel].data['wave'],
                                               self.xdata[channel].data['model'])
                     break
+            lineSource=
             if l['emission']:
                 lc = 'blue'
                 y_start = shiftedWave_y*1.2
@@ -469,23 +470,31 @@ class Inspector(object):
                 # y_start = 50
                 # y_end = 60
             if 'span' in l:
-                l['span'].x_start = shiftedWave
-                l['span'].y_start = y_start
-                l['span'].x_end = shiftedWave
-                l['span'].y_end = y_end
+                l['source'].data = dict(x_start=[shiftedWave],
+                                        y_start=[y_start],
+                                        x_end=[shiftedWave],
+                                        y_end=[y_end])
+                # l['span'].x_start = shiftedWave
+                # l['span'].y_start = y_start
+                # l['span'].x_end = shiftedWave
+                # l['span'].y_end = y_end
                 # l['span'].location = shiftedWave
                 l['span'].visible = visible
                 l['label'].x = shiftedWave
                 l['label'].y = y_start
                 l['label'].visible = visible
             else:
+                l['source'] = ColumnDataSource(data=dict(x_start=[shiftedWave],
+                                                         y_start=[y_start],
+                                                         x_end=[shiftedWave],
+                                                         y_end=[y_end]))
                 l['span'] = Arrow(end=VeeHead(size=2,
                                               line_color=lc, line_alpha=0.3,
                                               fill_color=lc, fill_alpha=0.3),
                                   line_color=lc, line_width=2, line_alpha=0.3,
-                                  x_start=shiftedWave, y_start=y_start,
-                                  x_end=shiftedWave, y_end=y_end,
-                                  visible=visible)
+                                  x_start='x_start', y_start='y_start',
+                                  x_end='x_end', y_end='y_end',
+                                  source=lineSource, visible=visible)
                 # l['span'] = Span(location=shiftedWave, dimension='height',
                 #                  line_color=lc, line_dash='solid',
                 #                  line_width=3, line_alpha=0.3,
