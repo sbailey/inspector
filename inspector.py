@@ -466,7 +466,7 @@ class Inspector(object):
                     y_start = 50
                     y_end = 60
                 l['span'] = Arrow(end=VeeHead(fill_color=lc), line_color=lc,
-                                  line_width=3, line_alpha=0.3
+                                  line_width=3, line_alpha=0.3,
                                   x_start=shiftedWave, y_start=y_start,
                                   x_end=shiftedWave, y_end=y_end,
                                   visible=visible)
