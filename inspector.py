@@ -13,7 +13,7 @@ from astropy.table import Table
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
 from bokeh.models import (CustomJS, ColumnDataSource, Label, Legend,
-                          Range1d, Slider, Span)
+                          Range1d, Slider, Span, Arrow, VeeHead)
 from bokeh.layouts import row, column, widgetbox
 from bokeh.models.widgets import Div
 import bokeh.palettes
@@ -69,23 +69,33 @@ lines = [
     #
     # Absorption lines
     #
-    {"name" : "Hζ",   "longname" : "Hζ",             "lambda" : 3889.049, "emission": False },
-    {"name" : "K",    "longname" : "K (Ca II 3933)", "lambda" : 3933.7,   "emission": False },
-    {"name" : "H",    "longname" : "H (Ca II 3968)", "lambda" : 3968.5,   "emission": False },
-    {"name" : "Hε",   "longname" : "Hε",             "lambda" : 3970.072, "emission": False },
-    {"name" : "Hδ",   "longname" : "Hδ",             "lambda" : 4101.734, "emission": False },
-    {"name" : "G",    "longname" : "G (Ca I 4307)",  "lambda" : 4307.74,  "emission": False },
-    {"name" : "Hγ",   "longname" : "Hγ",             "lambda" : 4340.464, "emission": False },
-    {"name" : "Hβ",   "longname" : "Hβ",             "lambda" : 4861.325, "emission": False },
-    {"name" : "Mg I", "longname" : "Mg I 5175",      "lambda" : 5175.0,   "emission": False },
-    {"name" : "D2",   "longname" : "D2 (Na I 5889)", "lambda" : 5889.95,  "emission": False },
-    # {"name" : "D",    "longname" : "D (Na I doublet)","lambda": 5892.9,   "emission": False },
-    {"name" : "D1",   "longname" : "D1 (Na I 5895)", "lambda" : 5895.92,  "emission": False },
-    {"name" : "Hα",   "longname" : "Hα",             "lambda" : 6562.801, "emission": False },
+    {"name" : "Hζ",   "longname" : "Balmer ζ",         "lambda" : 3889.049, "emission": False },
+    {"name" : "K",    "longname" : "K (Ca II 3933)",   "lambda" : 3933.7,   "emission": False },
+    {"name" : "H",    "longname" : "H (Ca II 3968)",   "lambda" : 3968.5,   "emission": False },
+    {"name" : "Hε",   "longname" : "Balmer ε",         "lambda" : 3970.072, "emission": False },
+    {"name" : "Hδ",   "longname" : "Balmer δ",         "lambda" : 4101.734, "emission": False },
+    {"name" : "G",    "longname" : "G (Ca I 4307)",    "lambda" : 4307.74,  "emission": False },
+    {"name" : "Hγ",   "longname" : "Balmer γ",         "lambda" : 4340.464, "emission": False },
+    {"name" : "Hβ",   "longname" : "Balmer β",         "lambda" : 4861.325, "emission": False },
+    {"name" : "Mg I", "longname" : "Mg I 5175",        "lambda" : 5175.0,   "emission": False },
+    {"name" : "D2",   "longname" : "D2 (Na I 5889)",   "lambda" : 5889.95,  "emission": False },
+    # {"name" : "D",    "longname" : "D (Na I doublet)", "lambda": 5892.9,   "emission": False },
+    {"name" : "D1",   "longname" : "D1 (Na I 5895)",   "lambda" : 5895.92,  "emission": False },
+    {"name" : "Hα",   "longname" : "Balmer α",         "lambda" : 6562.801, "emission": False },
     ]
 
 def airtovac(l):
     """Convert air wavelengths to vacuum wavelengths. Don't convert less than 2000 Å.
+
+    Parameters
+    ----------
+    l : :class:`float`
+        Wavelength [Å] of the line in air.
+
+    Returns
+    -------
+    :class:`float`
+        Wavelength [Å] of the line in vacuum.
     """
     if l < 2000.0:
         return l;
@@ -97,6 +107,13 @@ def airtovac(l):
     return vac
 
 def read_templates():
+    """Retrieve redrock templates.
+
+    Returns
+    -------
+    :class:`dict`
+        A dictionary keyed on (type, subtype).
+    """
     #- redirect stdout to silence chatty redrock
     saved_stdout = sys.stdout
     sys.stdout = open('/dev/null', 'w')
@@ -290,7 +307,8 @@ class Inspector(object):
 
         #- Zoom plot
         pz = figure(title=None, plot_height=200, plot_width=200,
-                y_range=p.y_range, output_backend="webgl", tools=[])
+                y_range=p.y_range, output_backend="webgl",
+                toolbar_location='above', tools=[])
         for channel in ['b', 'r', 'z']:
             pz.line('wave', 'flux', source=self.data[channel],
                     line_color=colors[channel], line_width=1, line_alpha=1.0)
@@ -439,15 +457,20 @@ class Inspector(object):
             else:
                 if l['emission']:
                     lc = 'blue'
-                    yo = 150
+                    y_start = 150
+                    y_end = 140
                 else:
                     lc = 'red'
-                    yo = 50
-                l['span'] = Span(location=shiftedWave, dimension='height',
-                                 line_color=lc, line_dash='solid',
-                                 line_width=3, line_alpha=0.3,
-                                 visible=visible)
-                l['label'] = Label(x=shiftedWave, y=yo + 20*(i % 3),
+                    y_start = 50
+                    y_end = 60
+                l['span'] = Arrow(end=VeeHead(fill_color=lc), line_color=lc,
+                                  x_start=shiftedWave, y_start=y_start,
+                                  x_end=shiftedWave, y_end=y_end)
+                # l['span'] = Span(location=shiftedWave, dimension='height',
+                #                  line_color=lc, line_dash='solid',
+                #                  line_width=3, line_alpha=0.3,
+                #                  visible=visible)
+                l['label'] = Label(x=shiftedWave, y=y_start + 20*(i % 3),
                                    y_units='screen',
                                    text=l['name'], text_color=lc,
                                    visible=visible)
@@ -460,7 +483,7 @@ class Inspector(object):
         Parameters
         ----------
         l : :class:`float`
-            Wavelength of the line to be tested.
+            Wavelength [Å] of the line to be tested.
 
         Returns
         -------
