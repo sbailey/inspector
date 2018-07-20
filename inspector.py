@@ -34,53 +34,54 @@ lines = [
     # See $IDLSPEC2D_DIR/etc/emlines.par
     # Wavelengths are in air for lambda > 2000, vacuum for lambda < 2000.
     #
-    {"name" : "Ly-α",           "lambda" : 1215.67,  "emission": True },
-    {"name" : "N V 1240",       "lambda" : 1240.81,  "emission": True },
-    {"name" : "C IV 1549",      "lambda" : 1549.48,  "emission": True },
-    {"name" : "He II 1640",     "lambda" : 1640.42,  "emission": True },
-    {"name" : "C III] 1908",    "lambda" : 1908.734, "emission": True },
-    {"name" : "Mg II 2799",     "lambda" : 2799.49,  "emission": True },
-    {"name" : "[O II] 3725",    "lambda" : 3726.032, "emission": True },
-    {"name" : "[O II] 3727",    "lambda" : 3728.815, "emission": True },
-    {"name" : "[Ne III] 3868",  "lambda" : 3868.76,  "emission": True },
-    {"name" : "Hζ",             "lambda" : 3889.049, "emission": True },
-    {"name" : "[Ne III] 3970",  "lambda" : 3970.00,  "emission": True },
-    {"name" : "Hδ",             "lambda" : 4101.734, "emission": True },
-    {"name" : "Hγ",             "lambda" : 4340.464, "emission": True },
-    {"name" : "[O III] 4363",   "lambda" : 4363.209, "emission": True },
-    {"name" : "He II 4685",     "lambda" : 4685.68,  "emission": True },
-    {"name" : "Hβ",             "lambda" : 4861.325, "emission": True },
-    {"name" : "[O III] 4959",   "lambda" : 4958.911, "emission": True },
-    {"name" : "[O III] 5007",   "lambda" : 5006.843, "emission": True },
-    {"name" : "He II 5411",     "lambda" : 5411.52,  "emission": True },
-    {"name" : "[O I] 5577",     "lambda" : 5577.339, "emission": True },
-    {"name" : "[N II] 5755",    "lambda" : 5754.59,  "emission": True },
-    {"name" : "He I 5876",      "lambda" : 5875.68,  "emission": True },
-    {"name" : "[O I] 6300",     "lambda" : 6300.304, "emission": True },
-    {"name" : "[S III] 6312",   "lambda" : 6312.06,  "emission": True },
-    {"name" : "[O I] 6363",     "lambda" : 6363.776, "emission": True },
-    {"name" : "[N II] 6548",    "lambda" : 6548.05,  "emission": True },
-    {"name" : "Hα",             "lambda" : 6562.801, "emission": True },
-    {"name" : "[N II] 6583",    "lambda" : 6583.45,  "emission": True },
-    {"name" : "[S II] 6716",    "lambda" : 6716.44,  "emission": True },
-    {"name" : "[S II] 6730",    "lambda" : 6730.82,  "emission": True },
-    {"name" : "[Ar III] 7135",  "lambda" : 7135.790, "emission": True },
+    {"name" : "Lyα",      "longname" : "Lyman α",        "lambda" : 1215.67,  "emission": True },
+    {"name" : "N V",      "longname" : "N V 1240",       "lambda" : 1240.81,  "emission": True },
+    {"name" : "C IV",     "longname" : "C IV 1549",      "lambda" : 1549.48,  "emission": True },
+    {"name" : "He II",    "longname" : "He II 1640",     "lambda" : 1640.42,  "emission": True },
+    {"name" : "C III]",   "longname" : "C III] 1908",    "lambda" : 1908.734, "emission": True },
+    {"name" : "Mg II",    "longname" : "Mg II 2799",     "lambda" : 2799.49,  "emission": True },
+    {"name" : "[O II]",   "longname" : "[O II] 3725",    "lambda" : 3726.032, "emission": True },
+    {"name" : "[O II]",   "longname" : "[O II] 3727",    "lambda" : 3728.815, "emission": True },
+    {"name" : "[Ne III]", "longname" : "[Ne III] 3868",  "lambda" : 3868.76,  "emission": True },
+    {"name" : "Hζ",       "longname" : "Balmer ζ",       "lambda" : 3889.049, "emission": True },
+    {"name" : "[Ne III]", "longname" : "[Ne III] 3970",  "lambda" : 3970.00,  "emission": True },
+    {"name" : "Hε",       "longname" : "Balmer ε",       "lambda" : 3970.072, "emission": True },
+    {"name" : "Hδ",       "longname" : "Balmer δ",       "lambda" : 4101.734, "emission": True },
+    {"name" : "Hγ",       "longname" : "Balmer γ",       "lambda" : 4340.464, "emission": True },
+    {"name" : "[O III]",  "longname" : "[O III] 4363",   "lambda" : 4363.209, "emission": True },
+    {"name" : "He II",    "longname" : "He II 4685",     "lambda" : 4685.68,  "emission": True },
+    {"name" : "Hβ",       "longname" : "Balmer β",       "lambda" : 4861.325, "emission": True },
+    {"name" : "[O III]",  "longname" : "[O III] 4959",   "lambda" : 4958.911, "emission": True },
+    {"name" : "[O III]",  "longname" : "[O III] 5007",   "lambda" : 5006.843, "emission": True },
+    {"name" : "He II",    "longname" : "He II 5411",     "lambda" : 5411.52,  "emission": True },
+    {"name" : "[O I]",    "longname" : "[O I] 5577",     "lambda" : 5577.339, "emission": True },
+    {"name" : "[N II]",   "longname" : "[N II] 5755",    "lambda" : 5754.59,  "emission": True },
+    {"name" : "He I",     "longname" : "He I 5876",      "lambda" : 5875.68,  "emission": True },
+    {"name" : "[O I]",    "longname" : "[O I] 6300",     "lambda" : 6300.304, "emission": True },
+    {"name" : "[S III]",  "longname" : "[S III] 6312",   "lambda" : 6312.06,  "emission": True },
+    {"name" : "[O I]",    "longname" : "[O I] 6363",     "lambda" : 6363.776, "emission": True },
+    {"name" : "[N II]",   "longname" : "[N II] 6548",    "lambda" : 6548.05,  "emission": True },
+    {"name" : "Hα",       "longname" : "Balmer α",       "lambda" : 6562.801, "emission": True },
+    {"name" : "[N II]",   "longname" : "[N II] 6583",    "lambda" : 6583.45,  "emission": True },
+    {"name" : "[S II]",   "longname" : "[S II] 6716",    "lambda" : 6716.44,  "emission": True },
+    {"name" : "[S II]",   "longname" : "[S II] 6730",    "lambda" : 6730.82,  "emission": True },
+    {"name" : "[Ar III]", "longname" : "[Ar III] 7135",  "lambda" : 7135.790, "emission": True },
     #
     # Absorption lines
     #
-    {"name" : "Hζ",             "lambda" : 3889.049, "emission": False },
-    {"name" : "K (Ca II 3933)", "lambda" : 3933.7,   "emission": False },
-    {"name" : "H (Ca II 3968)", "lambda" : 3968.5,   "emission": False },
-    {"name" : "Hε",             "lambda" : 3970.072, "emission": False },
-    {"name" : "Hδ",             "lambda" : 4101.734, "emission": False },
-    {"name" : "G (Ca I 4307)",  "lambda" : 4307.74,  "emission": False },
-    {"name" : "Hγ",             "lambda" : 4340.464, "emission": False },
-    {"name" : "Hβ",             "lambda" : 4861.325, "emission": False },
-    {"name" : "Mg I 5175",      "lambda" : 5175.0,   "emission": False },
-    {"name" : "D2 (Na I 5889)", "lambda" : 5889.95,  "emission": False },
-    # {"name" : "D (Na I doublet)","lambda": 5892.9,   "emission": False },
-    {"name" : "D1 (Na I 5895)", "lambda" : 5895.92,  "emission": False },
-    {"name" : "Hα",             "lambda" : 6562.801, "emission": False },
+    {"name" : "Hζ",   "longname" : "Hζ",             "lambda" : 3889.049, "emission": False },
+    {"name" : "K",    "longname" : "K (Ca II 3933)", "lambda" : 3933.7,   "emission": False },
+    {"name" : "H",    "longname" : "H (Ca II 3968)", "lambda" : 3968.5,   "emission": False },
+    {"name" : "Hε",   "longname" : "Hε",             "lambda" : 3970.072, "emission": False },
+    {"name" : "Hδ",   "longname" : "Hδ",             "lambda" : 4101.734, "emission": False },
+    {"name" : "G",    "longname" : "G (Ca I 4307)",  "lambda" : 4307.74,  "emission": False },
+    {"name" : "Hγ",   "longname" : "Hγ",             "lambda" : 4340.464, "emission": False },
+    {"name" : "Hβ",   "longname" : "Hβ",             "lambda" : 4861.325, "emission": False },
+    {"name" : "Mg I", "longname" : "Mg I 5175",      "lambda" : 5175.0,   "emission": False },
+    {"name" : "D2",   "longname" : "D2 (Na I 5889)", "lambda" : 5889.95,  "emission": False },
+    # {"name" : "D",    "longname" : "D (Na I doublet)","lambda": 5892.9,   "emission": False },
+    {"name" : "D1",   "longname" : "D1 (Na I 5895)", "lambda" : 5895.92,  "emission": False },
+    {"name" : "Hα",   "longname" : "Hα",             "lambda" : 6562.801, "emission": False },
     ]
 
 def airtovac(l):
@@ -180,10 +181,18 @@ def coadd_targets(spectra, targetids=None):
             mask=None, resolution_data=rdat, fibermap=fibermap)
 
 
-class Inspector():
+class Inspector(object):
+    """An interface to plotting spectra with Bokeh.
+
+    Parameters
+    ----------
+    basedir : :class:`str`
+        Path to the directory containing spectrum files.
+    """
+
     def __init__(self, basedir):
-        specfile = glob.glob(basedir+'/spectra-*.fits')[0]
-        zbestfile = glob.glob(basedir+'/zbest-*.fits')[0]
+        specfile = glob.glob(os.path.join(basedir, 'spectra-*.fits'))[0]
+        zbestfile = glob.glob(os.path.join(basedir, 'zbest-*.fits'))[0]
         self.zbest = Table.read(zbestfile, 'ZBEST')
         self.spectra = coadd_targets(desispec.io.read_spectra(specfile),
                 targetids=self.zbest['TARGETID'])
@@ -206,8 +215,8 @@ class Inspector():
 
         self.ispec = 0
         self.izbest = izbest
-        self._emission = True
-        self._absorption = True
+        self._emission = False
+        self._absorption = False
         self.print_targets_info()
         output_notebook()
 
@@ -382,17 +391,37 @@ class Inspector():
             print('Already at first target')
         self._update()
 
-    def emission(self, toggle):
+    def emission(self, toggle=None):
         """Toggle the display of known emission lines.
+
+        Parameters
+        ----------
+        toggle : :class:`bool`, optional
+            ``True`` and ``False`` turn on and off emission lines,
+            respectively.  If not set, the state will be set to the
+            opposite of the current state.
         """
-        self._emission = bool(toggle)
+        if toggle is None:
+            self._emission = not self._emission
+        else:
+            self._emission = bool(toggle)
         self._update_lines()
         push_notebook(handle=self.plot_handle)
 
-    def absorption(self, toggle):
+    def absorption(self, toggle=None):
         """Toggle the display of known absorption lines.
+
+        Parameters
+        ----------
+        toggle : :class:`bool`, optional
+            ``True`` and ``False`` turn on and off emission lines,
+            respectively.  If not set, the state will be set to the
+            opposite of the current state.
         """
-        self._absorption = bool(toggle)
+        if toggle is None:
+            self._absorption = not self._absorption
+        else:
+            self._absorption = bool(toggle)
         self._update_lines()
         push_notebook(handle=self.plot_handle)
 
@@ -427,6 +456,16 @@ class Inspector():
 
     def _line_in_range(self, l):
         """True if a spectral line is within the range of the plot.
+
+        Parameters
+        ----------
+        l : :class:`float`
+            Wavelength of the line to be tested.
+
+        Returns
+        -------
+        :class:`bool`
+            ``True`` if the line should be plotted.
         """
         return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
 
