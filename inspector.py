@@ -450,10 +450,10 @@ class Inspector(object):
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
             for channel in ('b', 'r', 'z'):
-                if self.xdata[channel].data['wave'].min() < l < self.xdata[channel].data['wave'].max():
+                if self.xdata[channel].data['wave'].min() < shiftedWave < self.xdata[channel].data['wave'].max():
                     shiftedWave_y = np.interp(shiftedWave,
                                               self.xdata[channel].data['wave'],
-                                             self.xdata[channel].data['model'])
+                                              self.xdata[channel].data['model'])
                     break
             if l['emission']:
                 lc = 'blue'
