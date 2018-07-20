@@ -456,7 +456,6 @@ class Inspector(object):
                                               self.xdata[channel].data['wave'],
                                               self.xdata[channel].data['model'])
                     break
-            lineSource=
             if l['emission']:
                 lc = 'blue'
                 y_start = shiftedWave_y*1.2
