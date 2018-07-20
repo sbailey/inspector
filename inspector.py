@@ -449,6 +449,7 @@ class Inspector(object):
             visible = (self._line_in_range(shiftedWave) and
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
+            shiftedWave_y = 0.0
             for channel in ('b', 'r', 'z'):
                 if self.xdata[channel].data['wave'].min() < shiftedWave < self.xdata[channel].data['wave'].max():
                     shiftedWave_y = np.interp(shiftedWave,
@@ -471,15 +472,17 @@ class Inspector(object):
                 l['span'].x_start = shiftedWave
                 l['span'].y_start = y_start
                 l['span'].x_end = shiftedWave
-                l['span'].y_start = y_end
+                l['span'].y_end = y_end
                 # l['span'].location = shiftedWave
                 l['span'].visible = visible
                 l['label'].x = shiftedWave
+                l['label'].y = y_start
                 l['label'].visible = visible
             else:
-                l['span'] = Arrow(end=VeeHead(line_color=lc, line_alpha=0.3,
+                l['span'] = Arrow(end=VeeHead(size=2,
+                                              line_color=lc, line_alpha=0.3,
                                               fill_color=lc, fill_alpha=0.3),
-                                  line_color=lc, line_width=3, line_alpha=0.3,
+                                  line_color=lc, line_width=2, line_alpha=0.3,
                                   x_start=shiftedWave, y_start=y_start,
                                   x_end=shiftedWave, y_end=y_end,
                                   visible=visible)
