@@ -459,17 +459,18 @@ class Inspector(object):
             else:
                 if l['emission']:
                     lc = 'blue'
-                    y_start = 4
-                    y_end = 3
+                    y_start = 3
+                    y_end = 2
                     # y_start = 150
                     # y_end = 140
                 else:
                     lc = 'red'
-                    y_start = -4
-                    y_end = -3
+                    y_start = -3
+                    y_end = -2
                     # y_start = 50
                     # y_end = 60
-                l['span'] = Arrow(end=VeeHead(line_color=lc, fill_color=lc),
+                l['span'] = Arrow(end=VeeHead(line_color=lc, line_alpha=0.3,
+                                              fill_color=lc, fill_alpha=0.3),
                                   line_color=lc, line_width=3, line_alpha=0.3,
                                   x_start=shiftedWave, y_start=y_start,
                                   x_end=shiftedWave, y_end=y_end,
@@ -478,9 +479,8 @@ class Inspector(object):
                 #                  line_color=lc, line_dash='solid',
                 #                  line_width=3, line_alpha=0.3,
                 #                  visible=visible)
-                l['label'] = Label(x=shiftedWave, y=y_start + 20*(i % 3),
-                                   y_units='screen',
-                                   text=l['name'], text_color=lc,
+                l['label'] = Label(x=shiftedWave, y=y_start,
+                                   text=l['name'], text_color=lc, text_alpha=0.3,
                                    visible=visible)
                 self.p.add_layout(l['span'])
                 self.p.add_layout(l['label'])
