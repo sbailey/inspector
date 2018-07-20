@@ -450,7 +450,9 @@ class Inspector(object):
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
             if 'span' in l:
-                l['span'].location = shiftedWave
+                l['span'].x_start = shiftedWave
+                l['span'].x_end = shiftedWave
+                # l['span'].location = shiftedWave
                 l['span'].visible = visible
                 l['label'].x = shiftedWave
                 l['label'].visible = visible
