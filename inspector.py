@@ -355,7 +355,7 @@ class Inspector():
         #
         # Targeting information
         #
-        self.im = figure(title=None, plot_width=256, plot_height=256,
+        self.im = figure(title=None, plot_width=200, plot_height=200,
                          x_range=(0, 256), y_range=(0, 256),
                          output_backend="webgl",
                          toolbar_location='above', tools=[])
@@ -366,17 +366,25 @@ class Inspector():
         #- Text area
         self.infodiv = Div(text='Hello<br/>There')
 
-        self.plot_handle = show(row(column(self.im, widgetbox(self.targetdiv)),
-                                    p,
-                                    column(pz, widgetbox(self.infodiv))),
-                                notebook_handle=True)
+        self.plot_handle = show(
+            column(
+                row(
+                    p,
+                    column(pz, self.im),
+                    # column(self.im, widgetbox(self.targetdiv, width=200)),
+                    # column(pz, widgetbox(self.infodiv, width=200))
+                    ),
+                row(widgetbox(self.targetdiv, width=400), widgetbox(self.infodiv, width=400)),
+                ),
+            notebook_handle=True
+            )
         # self.plot_handle = show(p, notebook_handle=True)
 
         #- Repeatd code...
         self._update()
         self.inspect()
 
-    def _cutout(self, ra, dec, zoom=12, layer='sdss2'):
+    def _cutout(self, ra, dec, zoom=13, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
         """
         u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
@@ -611,22 +619,45 @@ class Inspector():
             zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
         self.p.title.text = title
 
-        info = ['<dl style="font-size:small;">']
-        info.append('<dt>Spectrum</dt><dd>{0:d}/{1:d}</dd>'.format(self.ispec+1, self.spectra.num_spectra()))
-        info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
-        if zb['ZWARN']:
-            info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
-                        zb['ZWARN']))
-        info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
-            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
-        if fibermap['BGS_TARGET']:
-            info.append('<dt>BGS_TARGET</dt><dd>{0}</dd>'.format(
-                ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        # info = ['<dl style="font-size:small;">']
+        # info.append('<dt>Spectrum</dt><dd>{0:d}/{1:d}</dd>'.format(self.ispec+1, self.spectra.num_spectra()))
+        # info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
+        # if zb['ZWARN']:
+        #     info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
+        #                 zb['ZWARN']))
+        # info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
+        #     ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
+        # if fibermap['BGS_TARGET']:
+        #     info.append('<dt>BGS_TARGET</dt><dd>{0}</dd>'.format(
+        #         ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        #
+        # if fibermap['MWS_TARGET']:
+        #     info.append('<dt>MWS_TARGET</dt><dd>{0}</dd>'.format(
+        #         ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        # info.append('</dl>')
+        # self.infodiv.text = ''.join(info)
 
-        if fibermap['MWS_TARGET']:
-            info.append('<dt>MWS_TARGET</dt><dd>{0}</dd>'.format(
-                ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
-        info.append('</dl>')
+        info = list()
+        info.append('<p style="font-size:small;">')
+        info.append('Target {} ({}/{})</td>'.format(
+            zb['TARGETID'],self.ispec+1, self.spectra.num_spectra()))
+        if zb['ZWARN']:
+            info.append('<span style="color:orangered;">ZWARN {0:d}</span>'.format(
+                        zb['ZWARN']))
+        info.append('</p>')
+        info.append('<p><b>RA,DEC</b> {:.6f},{:.6f}</p>'.format(
+            fibermap['RA_TARGET'], fibermap['DEC_TARGET']
+        ))
+        # info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
+        #     ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
+        # if fibermap['BGS_TARGET']:
+        #     info.append('<dt>BGS_TARGET</dt><dd>{0}</dd>'.format(
+        #         ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        #
+        # if fibermap['MWS_TARGET']:
+        #     info.append('<dt>MWS_TARGET</dt><dd>{0}</dd>'.format(
+        #         ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        info.append('</table>')
         self.infodiv.text = ''.join(info)
 
         targeturl = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
