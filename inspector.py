@@ -371,8 +371,11 @@ class Inspector(object):
         izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
         zb = self.zbest[izbest]
         tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
+        print(tx.wave.shape)
+        print(tx.flux.shape)
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
+        print(model.shape)
         for channel in ('b', 'r', 'z'):
             wave = self.spectra.wave[channel]
             flux = self.spectra.flux[channel][ispec]
