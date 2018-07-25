@@ -212,26 +212,17 @@ class Inspector(object):
         zbestfile = glob.glob(os.path.join(basedir, 'zbest-*.fits'))[0]
         self.zbest = Table.read(zbestfile, 'ZBEST')
         self.spectra = coadd_targets(desispec.io.read_spectra(specfile),
-                targetids=self.zbest['TARGETID'])
+                                     targetids=self.zbest['TARGETID'])
         self.templates = read_templates()
         self.nspec = len(self.zbest)
 
-        sp = self.spectra
-        assert np.all(sp.target_ids() == self.zbest['TARGETID'])
-        assert np.all(sp.target_ids() == sp.fibermap['TARGETID'])
+        assert np.all(self.spectra.target_ids() == self.zbest['TARGETID'])
+        assert np.all(self.spectra.target_ids() == self.spectra.fibermap['TARGETID'])
 
         self.data = dict()     #- high resolution
         self.xdata = dict()    #- low resolution
-        for channel in ['b', 'r', 'z']:
-            izbest, (xwave, xflux, xmodel), (wave, flux, model) = \
-                    self._get_data(0, channel)
-            self.data[channel] = ColumnDataSource(
-                    dict(wave=wave, flux=flux, model=model))
-            self.xdata[channel] = ColumnDataSource(
-                    dict(wave=xwave, flux=xflux, model=xmodel))
-
         self.ispec = 0
-        self.izbest = izbest
+        self.izbest = self._get_data(self.ispec)
         self._emission = False
         self._absorption = False
         self.print_targets_info()
@@ -375,9 +366,7 @@ class Inspector(object):
         self.p.y_range.start = ymin
         self.p.y_range.end = ymax
 
-    def _get_data(self, ispec, channel):
-        wave = self.spectra.wave[channel]
-        flux = self.spectra.flux[channel][ispec]
+    def _get_data(self, ispec):
         targetid = self.spectra.fibermap['TARGETID'][ispec]
         izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
         zb = self.zbest[izbest]
@@ -386,14 +375,30 @@ class Inspector(object):
         tx = self.templates[spectype]
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
-
-        ww = np.arange(wave[0], wave[-1], 3)
-        xflux = resample_flux(ww, wave, flux)
-        xmodel = resample_flux(ww, tx.wave*(1+z), model)
-
-        model = resample_flux(wave, tx.wave*(1+z), model)
-
-        return izbest, (ww, xflux, xmodel), (wave, flux, model)
+        for channel in ('b', 'r', 'z'):
+            wave = self.spectra.wave[channel]
+            flux = self.spectra.flux[channel][ispec]
+            ivar = self.spectra.ivar[channel][ispec]
+            xwave = np.arange(wave[0], wave[-1], 3)
+            xflux = resample_flux(xwave, wave, flux)
+            xivar = resample_flux(xwave, wave, ivar)
+            xmodel = resample_flux(xwave, tx.wave*(1+z), model)
+            model = resample_flux(wave, tx.wave*(1+z), model)
+            if channel in self.data:
+                self.xdata[channel].data['wave'] = xwave
+                self.xdata[channel].data['flux'] = xflux
+                self.xdata[channel].data['ivar'] = xivar
+                self.xdata[channel].data['model'] = xmodel
+                self.data[channel].data['wave'] = wave
+                self.data[channel].data['flux'] = flux
+                self.data[channel].data['ivar'] = ivar
+                self.data[channel].data['model'] = model
+            else:
+                self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
+                                                           ivar=ivar, model=model))
+                self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
+                                                            ivar=xivar, model=xmodel))
+        return izbest
 
     def next(self):
         if self.ispec+1 < self.nspec:
@@ -451,19 +456,22 @@ class Inspector(object):
                         (self._absorption and not l['emission'])))
             shiftedWave_y = 0.0
             for channel in ('b', 'r', 'z'):
+                sign = -1.0
+                if l['emission']: sign = 1.0
+                y_envelope = self.xdata[channel].data['model'] + sign*line_scale/np.sqrt(self.xdata[channel].data['ivar'])
                 if self.xdata[channel].data['wave'].min() < shiftedWave < self.xdata[channel].data['wave'].max():
                     shiftedWave_y = np.interp(shiftedWave,
                                               self.xdata[channel].data['wave'],
-                                              self.xdata[channel].data['model'])
+                                              y_envelope)
                     break
             if l['emission']:
                 lc = 'blue'
-                y_start = (shiftedWave_y + line_size)*line_scale
-                y_end = shiftedWave_y*line_scale
+                y_start = shiftedWave_y + line_size
+                y_end = shiftedWave_y
             else:
                 lc = 'red'
-                y_start = (shiftedWave_y - line_size)/line_scale
-                y_end = shiftedWave_y/line_scale
+                y_start = shiftedWave_y - line_size
+                y_end = shiftedWave_y
             if 'span' in l:
                 l['source'].data = dict(x_start=[shiftedWave],
                                         y_start=[y_start],
@@ -507,17 +515,7 @@ class Inspector(object):
         return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
 
     def _update(self):
-        for channel in ['b', 'r', 'z']:
-            izbest, (xwave, xflux, xmodel), (wave, flux, model) = \
-                    self._get_data(self.ispec, channel)
-            self.xdata[channel].data['wave'] = xwave
-            self.xdata[channel].data['flux'] = xflux
-            self.xdata[channel].data['model'] = xmodel
-            self.data[channel].data['wave'] = wave
-            self.data[channel].data['flux'] = flux
-            self.data[channel].data['model'] = model
-
-        self.izbest = izbest
+        self.izbest = self._get_data(self.ispec)
         zb = self.zbest[self.izbest]
 
         self._set_ylim()
