@@ -443,7 +443,7 @@ class Inspector(object):
         self._update_lines()
         push_notebook(handle=self.plot_handle)
 
-    def _update_lines(self):
+    def _update_lines(self, line_size=0.25, line_scale=2.0):
         for i, l in enumerate(lines):
             shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
             visible = (self._line_in_range(shiftedWave) and
@@ -458,26 +458,17 @@ class Inspector(object):
                     break
             if l['emission']:
                 lc = 'blue'
-                y_start = (shiftedWave_y + 0.25)*1.2
-                y_end = shiftedWave_y*1.2
-                # y_start = 150
-                # y_end = 140
+                y_start = (shiftedWave_y + line_size)*line_scale
+                y_end = shiftedWave_y*line_scale
             else:
                 lc = 'red'
-                y_start = (shiftedWave_y - 0.25)*0.8
-                y_end = shiftedWave_y*0.8
-                # y_start = 50
-                # y_end = 60
+                y_start = (shiftedWave_y - line_size)/line_scale
+                y_end = shiftedWave_y/line_scale
             if 'span' in l:
                 l['source'].data = dict(x_start=[shiftedWave],
                                         y_start=[y_start],
                                         x_end=[shiftedWave],
                                         y_end=[y_end])
-                # l['span'].x_start = shiftedWave
-                # l['span'].y_start = y_start
-                # l['span'].x_end = shiftedWave
-                # l['span'].y_end = y_end
-                # l['span'].location = shiftedWave
                 l['span'].visible = visible
                 l['label'].x = shiftedWave
                 l['label'].y = y_start
@@ -494,12 +485,8 @@ class Inspector(object):
                                   x_start='x_start', y_start='y_start',
                                   x_end='x_end', y_end='y_end',
                                   source=l['source'], visible=visible)
-                # l['span'] = Span(location=shiftedWave, dimension='height',
-                #                  line_color=lc, line_dash='solid',
-                #                  line_width=3, line_alpha=0.3,
-                #                  visible=visible)
                 l['label'] = Label(x=shiftedWave, y=y_start,
-                                   text=l['name'], text_color=lc, text_alpha=0.3,
+                                   text=l['name'], text_color=lc, text_alpha=0.5,
                                    visible=visible)
                 self.p.add_layout(l['span'])
                 self.p.add_layout(l['label'])
