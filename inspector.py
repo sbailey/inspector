@@ -458,14 +458,14 @@ class Inspector(object):
                     break
             if l['emission']:
                 lc = 'blue'
-                y_start = shiftedWave_y*1.2
-                y_end = shiftedWave_y*1.2 - 0.5
+                y_start = (shiftedWave_y + 0.25)*1.2
+                y_end = shiftedWave_y*1.2
                 # y_start = 150
                 # y_end = 140
             else:
                 lc = 'red'
-                y_start = shiftedWave_y*0.8
-                y_end = shiftedWave_y*0.8 + 0.5
+                y_start = (shiftedWave_y - 0.25)*0.8
+                y_end = shiftedWave_y*0.8
                 # y_start = 50
                 # y_end = 60
             if 'span' in l:
