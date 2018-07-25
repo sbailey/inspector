@@ -370,9 +370,7 @@ class Inspector(object):
         targetid = self.spectra.fibermap['TARGETID'][ispec]
         izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
         zb = self.zbest[izbest]
-        z = zb['Z']
-        spectype = (zb['SPECTYPE'], zb['SUBTYPE'])
-        tx = self.templates[spectype]
+        tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
         for channel in ('b', 'r', 'z'):
@@ -380,10 +378,13 @@ class Inspector(object):
             flux = self.spectra.flux[channel][ispec]
             ivar = self.spectra.ivar[channel][ispec]
             xwave = np.arange(wave[0], wave[-1], 3)
+            assert wave.shape == flux.shape
+            assert wave.shape == ivar.shape
+            assert tx.wave.shape == model.shape
             xflux = resample_flux(xwave, wave, flux)
             xivar = resample_flux(xwave, wave, ivar)
-            xmodel = resample_flux(xwave, tx.wave*(1+z), model)
-            model = resample_flux(wave, tx.wave*(1+z), model)
+            xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
+            model = resample_flux(wave, tx.wave*(1+zb['Z']), model)
             if channel in self.data:
                 self.xdata[channel].data['wave'] = xwave
                 self.xdata[channel].data['flux'] = xflux
