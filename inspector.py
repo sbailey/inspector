@@ -371,23 +371,17 @@ class Inspector(object):
         izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
         zb = self.zbest[izbest]
         tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
-        print(tx.wave.shape)
-        print(tx.flux.shape)
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
-        print(model.shape)
         for channel in ('b', 'r', 'z'):
             wave = self.spectra.wave[channel]
             flux = self.spectra.flux[channel][ispec]
             ivar = self.spectra.ivar[channel][ispec]
             xwave = np.arange(wave[0], wave[-1], 3)
-            assert wave.shape == flux.shape
-            assert wave.shape == ivar.shape
-            assert tx.wave.shape == model.shape
             xflux = resample_flux(xwave, wave, flux)
             xivar = resample_flux(xwave, wave, ivar)
             xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
-            model = resample_flux(wave, tx.wave*(1+zb['Z']), model)
+            rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
             if channel in self.data:
                 self.xdata[channel].data['wave'] = xwave
                 self.xdata[channel].data['flux'] = xflux
@@ -396,10 +390,10 @@ class Inspector(object):
                 self.data[channel].data['wave'] = wave
                 self.data[channel].data['flux'] = flux
                 self.data[channel].data['ivar'] = ivar
-                self.data[channel].data['model'] = model
+                self.data[channel].data['model'] = rmodel
             else:
                 self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
-                                                           ivar=ivar, model=model))
+                                                           ivar=ivar, model=rmodel))
                 self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
                                                             ivar=xivar, model=xmodel))
         return izbest
