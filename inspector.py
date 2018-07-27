@@ -256,11 +256,13 @@ class Inspector():
             ('targetid', int),
             ('scanner', 'S16'),
             ('z', float),
+            ('spectype', 'S6'),
+            ('subtype', 'S6'),
             ('result', 'int16'),
         ])
-        for key in ['flag', 'bad', 'no', 'maybe', 'yes']:
-            fitskey = 'VSCAN{:02d}'.format(scan_results[key])
-            self.visual_scan.meta[fitskey] = key
+        for name in ['flag', 'bad', 'no', 'maybe', 'yes']:
+            key = 'VSCAN{:02d}'.format(scan_results[name])
+            self.visual_scan.meta[key] = name
         
         output_notebook()
 
@@ -504,6 +506,62 @@ class Inspector():
 
         buttons.append(widgets.Button(
             description='no', tooltip='OK data but redshift is not correct',
+            layout=layout, button_style='danger'))
+        buttons.append(widgets.Button(
+            description='maybe', tooltip='Uncertain if redshift is correct',
+            layout=layout, button_style='primary'))
+        buttons.append(widgets.Button(
+            description='yes', tooltip='Confident that redshift is correct',
+            layout=layout, button_style='success'))
+        buttons.append(widgets.Button(
+            description='next', tooltip='Skip to next target without recording yes/no/maybe',
+            layout=layout))
+
+        for b in buttons:
+            b.on_click(callback)
+
+        display(widgets.HBox(buttons))
+
+    def inspect(self):
+        def callback(source):
+            if source.description == 'prev':
+                self.prev()
+            elif source.description == 'next':
+                self.next()
+            elif source.description in ['yes', 'maybe', 'no', 'flag']:
+                targetid = self.zbest['TARGETID'][self.izbest]
+                z = self.zbest['Z'][self.izbest]
+                spectype = self.zbest['SPECTYPE'][self.izbest]
+                subtype = self.zbest['SUBTYPE'][self.izbest]
+
+                #- remove previous result if needed
+                if targetid in self.visual_scan['targetid']:
+                    ii = np.where(self.visual_scan['targetid'] == targetid)[0]
+                    self.visual_scan.remove_rows(ii)
+
+                #- Add new visual scan result
+                self.visual_scan.add_row(dict(
+                    targetid=targetid,
+                    scanner=os.getenv('USER'),
+                    z=z,
+                    spectype=spectype,
+                    subtype=subtype,
+                    result=scan_results[source.description],
+                ))
+                self.next()
+            else:
+                raise ValueError('Unknown button {}'.format(source.description))
+
+        buttons = list()
+        layout = widgets.Layout(width='60px')
+        buttons.append(widgets.Button(
+            description='prev', tooltip='Go to previous target',
+            layout=layout))
+        buttons.append(widgets.Button(
+            description='flag', tooltip='Flag for more inspection',
+            layout=layout, button_style='warning'))
+        buttons.append(widgets.Button(
+            description='no', tooltip='Redshift is not correct',
             layout=layout, button_style='danger'))
         buttons.append(widgets.Button(
             description='maybe', tooltip='Uncertain if redshift is correct',
