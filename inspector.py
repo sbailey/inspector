@@ -10,6 +10,9 @@ import numpy as np
 
 from astropy.table import Table
 
+import ipywidgets as widgets
+from IPython.display import display
+
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
 from bokeh.models import (CustomJS, ColumnDataSource, Label, Legend,
@@ -27,6 +30,7 @@ from desitarget.targetmask import desi_mask, bgs_mask, mws_mask
 import redrock.templates
 from redrock.rebin import trapz_rebin
 
+from IPython.core.display import display, HTML
 
 lines = [
     #
@@ -105,6 +109,15 @@ def airtovac(l):
         fact = 1.0 + 5.792105e-2/(238.0185 - sigma2) + 1.67917e-3/(57.362 - sigma2)
         vac = l*fact
     return vac
+
+#- Mapping of human friendly strings to integers for visual scan results
+scan_results = {
+    'flag': -1, -1: 'flag',     #- flag for data expert followup
+    'bad':   0,  0: 'bad',      #- bad target (e.g. low S/N, can't measure z)
+    'no':    1,  1: 'no',       #- ok data but wrong redshift
+    'maybe': 2,  2: 'maybe',    #- redshift might be right
+    'yes':   3,  3: 'yes',      #- redshift definitely is right
+}
 
 def read_templates():
     """Retrieve redrock templates.
@@ -195,24 +208,35 @@ def coadd_targets(spectra, targetids=None):
             rdat[channel][i] = outrdat
 
     return Spectra(spectra.bands, wave, flux, ivar,
-            mask=None, resolution_data=rdat, fibermap=fibermap)
+            mask=None, resolution_data=rdat, fibermap=fibermap,
+            meta=spectra.meta)
 
+def load_spectra(specfile, zbestfile=None):
+    '''TODO: document'''
+    if zbestfile is None:
+        specdir, basename = os.path.split(specfile)
+        if not basename.startswith('spectra'):
+            raise ValueError("Can't derive zbest filename if spectra filename {} doesn't match spectra*.fits".format(basename))
+        zbestfile = os.path.join(specdir, basename.replace('spectra', 'zbest'))
 
-class Inspector(object):
+        zbest = Table.read(zbestfile, 'ZBEST')
+        spectra = coadd_targets(desispec.io.read_spectra(specfile),
+                targetids=zbest['TARGETID'])
+
+    return Inspector(spectra, zbest)
+
+class Inspector(): 
     """An interface to plotting spectra with Bokeh.
 
     Parameters
     ----------
-    basedir : :class:`str`
-        Path to the directory containing spectrum files.
+    spectra : :class:`desispec.spectra.Spectra` object
+    zbest : Table of zbest output from redrock
     """
 
-    def __init__(self, basedir):
-        specfile = glob.glob(os.path.join(basedir, 'spectra-*.fits'))[0]
-        zbestfile = glob.glob(os.path.join(basedir, 'zbest-*.fits'))[0]
-        self.zbest = Table.read(zbestfile, 'ZBEST')
-        self.spectra = coadd_targets(desispec.io.read_spectra(specfile),
-                                     targetids=self.zbest['TARGETID'])
+    def __init__(self, spectra, zbest):
+        self.zbest = zbest
+        self.spectra = spectra
         self.templates = read_templates()
         self.nspec = len(self.zbest)
 
@@ -226,6 +250,20 @@ class Inspector(object):
         self._emission = False
         self._absorption = False
         self.print_targets_info()
+        
+        #- dictionary for holding results of visual scan
+        self.visual_scan = Table(dtype=[
+            ('targetid', int),
+            ('scanner', 'S16'),
+            ('z', float),
+            ('spectype', 'S6'),
+            ('subtype', 'S6'),
+            ('result', 'int16'),
+        ])
+        for name in ['flag', 'bad', 'no', 'maybe', 'yes']:
+            key = 'VSCAN{:02d}'.format(scan_results[name])
+            self.visual_scan.meta[key] = name
+        
         output_notebook()
 
     @property
@@ -257,6 +295,10 @@ class Inspector(object):
             nelg, nlrg, nqso, nbgs, nmws))
 
     def plot(self):
+
+        #- Make notebook use full width of screen
+        display(HTML("<style>.container { width:100% !important; }</style>"))
+
         tools = 'pan,box_zoom,wheel_zoom,undo,redo,reset,save'
         self.p = p = figure(plot_height=400, plot_width=800,
                         output_backend="webgl",
@@ -299,7 +341,7 @@ class Inspector(object):
         #- Zoom plot
         pz = figure(title=None, plot_height=200, plot_width=200,
                 y_range=p.y_range, output_backend="webgl",
-                toolbar_location='above', tools=[])
+                toolbar_location=None, tools=[])
         for channel in ['b', 'r', 'z']:
             pz.line('wave', 'flux', source=self.data[channel],
                     line_color=colors[channel], line_width=1, line_alpha=1.0)
@@ -311,13 +353,13 @@ class Inspector(object):
         self.pz = pz
 
         #- Callback to update zoom window x-range
-        def callback(zoomplot):
+        def zoom_callback(zoomplot):
             return CustomJS(args=dict(xr=zoomplot.x_range), code="""
                 xr.start = cb_obj.x - 100;
                 xr.end = cb_obj.x + 100;
             """)
 
-        p.js_on_event(bokeh.events.MouseMove, callback(pz))
+        p.js_on_event(bokeh.events.MouseMove, zoom_callback(pz))
         #
         # Lines.
         #
@@ -325,32 +367,50 @@ class Inspector(object):
         #
         # Targeting information
         #
-        self.im = figure(title=None, plot_width=256, plot_height=256,
+        self.im = figure(plot_width=200, plot_height=200,
                          x_range=(0, 256), y_range=(0, 256),
+                         x_axis_location=None, y_axis_location=None,
                          output_backend="webgl",
-                         toolbar_location='above', tools=[])
+                         toolbar_location=None, tools=[])
+        self.im.min_border_left = 0
+        self.im.min_border_right = 0
+        self.im.min_border_top = 0
+        self.im.min_border_bottom = 0
         u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
                          self.spectra.fibermap[self.ispec]['DEC_TARGET'])
-        self.targetdiv = Div(text='Hello<br/>There')
 
         #- Text area
-        self.infodiv = Div(text='Hello<br/>There')
+        self.info_div = Div(text='Hello<br/>There', width=400)
 
-        self.plot_handle = show(row(column(self.im, widgetbox(self.targetdiv)),
-                                    p,
-                                    column(pz, widgetbox(self.infodiv))),
-                                notebook_handle=True)
+        self.plot_handle = show(
+            column(
+                row(
+                    p,
+                    column(self.im, pz),
+                    ),
+                row(widgetbox(self.info_div, width=600),),
+                height=550,
+                ),
+            notebook_handle=True
+            )
         # self.plot_handle = show(p, notebook_handle=True)
 
         #- Repeatd code...
         self._update()
+        self.inspect()
 
-    def _cutout(self, ra, dec, zoom=12, layer='sdss2'):
+    def _cutout(self, ra, dec, zoom=13, layer='sdss2'):
         """Image plot centered on `ra`, `dec`.
         """
         u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
         v = "http://legacysurvey.org/viewer/?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
-        self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
+        img = self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
+        radec = 'RA,dec = {:.4f}, {:.4f}'.format(ra, dec)
+        self.im.text(10, 256-30, dict(value=radec),
+            text_color='yellow', text_font_size='8pt')
+        # self.im.title.text = radec
+        callback = CustomJS(code="window.open('{}', '_blank');".format(v))
+        self.im.js_on_event('tap', callback)
         return v
 
     def _set_ylim(self):
@@ -397,6 +457,67 @@ class Inspector(object):
                 self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
                                                             ivar=xivar, model=xmodel))
         return izbest
+
+    def inspect(self):
+        def callback(source):
+            if source.description == 'prev':
+                self.prev()
+            elif source.description == 'next':
+                self.next()
+            elif source.description in ['yes', 'maybe', 'no', 'flag', 'bad']:
+                targetid = self.zbest['TARGETID'][self.izbest]
+                z = self.zbest['Z'][self.izbest]
+                spectype = self.zbest['SPECTYPE'][self.izbest]
+                subtype = self.zbest['SUBTYPE'][self.izbest]
+
+                #- remove previous result if needed
+                if targetid in self.visual_scan['targetid']:
+                    ii = np.where(self.visual_scan['targetid'] == targetid)[0]
+                    self.visual_scan.remove_rows(ii)
+
+                #- Add new visual scan result
+                self.visual_scan.add_row(dict(
+                    targetid=targetid,
+                    scanner=os.getenv('USER'),
+                    z=z,
+                    spectype=spectype,
+                    subtype=subtype,
+                    result=scan_results[source.description],
+                ))
+                self.next()
+            else:
+                raise ValueError('Unknown button {}'.format(source.description))
+
+        buttons = list()
+        layout = widgets.Layout(width='60px')
+        buttons.append(widgets.Button(
+            description='prev', tooltip='Go to previous target',
+            layout=layout))
+        buttons.append(widgets.Button(
+            description='flag', tooltip='Flag for more inspection',
+            layout=layout, button_style='warning'))
+        buttons.append(widgets.Button(
+            description='no', tooltip='Redshift is not correct',
+            layout=layout, button_style='danger'))
+        buttons.append(widgets.Button(
+            description='maybe', tooltip='Uncertain if redshift is correct',
+            layout=layout, button_style='primary'))
+        buttons.append(widgets.Button(
+            description='yes', tooltip='Confident that redshift is correct',
+            layout=layout, button_style='success'))
+        buttons.append(widgets.Button(
+            description='next', tooltip='Skip to next target without recording yes/no/maybe',
+            layout=layout))
+
+        for b in buttons:
+            b.on_click(callback)
+
+        display(widgets.HBox(buttons))
+
+        #- Don't display widget close button; javascript magic code from
+        #- https://groups.google.com/forum/#!topic/jupyter/r67iMlSmuEg
+        hideclose = "<script>$('.widget-area .prompt .close').hide()</script>"
+        display(HTML(hideclose))
 
     def next(self):
         if self.ispec+1 < self.nspec:
@@ -528,32 +649,21 @@ class Inspector(object):
             zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
         self.p.title.text = title
 
-        info = ['<dl style="font-size:small;">']
-        info.append('<dt>Spectrum</dt><dd>{0:d}/{1:d}</dd>'.format(self.ispec+1, self.spectra.num_spectra()))
-        info.append('<dt>ID</dt><dd>{0:d}</dd>'.format(zb['TARGETID']))
-        if zb['ZWARN']:
-            info.append('<dt style="color:orangered;">ZWARN</dt><dd style="color:orangered;">{0:d}</dd>'.format(
-                        zb['ZWARN']))
-        info.append('<dt>DESI_TARGET</dt><dd>{0}<dd>'.format(
+        info = list()
+        info.append('<table>')
+        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
+        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
             ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
-        if fibermap['BGS_TARGET']:
-            info.append('<dt>BGS_TARGET</dt><dd>{0}</dd>'.format(
-                ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        info.append('</table>')
 
-        if fibermap['MWS_TARGET']:
-            info.append('<dt>MWS_TARGET</dt><dd>{0}</dd>'.format(
-                ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
-        info.append('</dl>')
-        self.infodiv.text = ''.join(info)
+        self.info_div.text = '\n'.join(info)
 
-        targeturl = self._cutout(fibermap['RA_TARGET'], fibermap['DEC_TARGET'])
-        targetopen = "window.open('{0}', '_blank');".format(targeturl)
-        targetinfo = ['<dl style="font-size:small;">']
-        targetinfo.append('<dt>Viewer Link</dt><dd><a onclick="{0}">DECaLS Image Viewer</a></dd>'.format(targetopen))
-        targetinfo.append('<dt>RA</dt><dd>{0:.6f}</dd>'.format(fibermap['RA_TARGET']))
-        targetinfo.append('<dt>DEC</dt><dd>{0:.6f}</dd>'.format(fibermap['DEC_TARGET']))
-        targetinfo.append('</dl>')
-        self.targetdiv.text = ''.join(targetinfo)
-
+        #- Trigger updating image cutout
+        u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
+                         self.spectra.fibermap[self.ispec]['DEC_TARGET'])
 
         push_notebook(handle=self.plot_handle)
