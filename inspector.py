@@ -467,70 +467,6 @@ class Inspector():
             elif source.description in ['yes', 'maybe', 'no', 'flag', 'bad']:
                 targetid = self.zbest['TARGETID'][self.izbest]
                 z = self.zbest['Z'][self.izbest]
-
-                #- remove previous result if needed
-                if targetid in self.visual_scan['targetid']:
-                    ii = np.where(self.visual_scan['targetid'] == targetid)[0]
-                    self.visual_scan.remove_rows(ii)
-
-                #- Add new visual scan result
-                self.visual_scan.add_row(dict(
-                    targetid=targetid,
-                    scanner=os.getenv('USER'),
-                    z=z,
-                    result=scan_results[source.description],
-                ))
-                self.next()
-            else:
-                raise ValueError('Unknown button {}'.format(source.description))
-
-        buttons = list()
-        layout = widgets.Layout(width='60px')
-        buttons.append(widgets.Button(
-            description='prev', tooltip='Go to previous target',
-            layout=layout))
-        # buttons.append(widgets.Button(
-        #     description='flag', tooltip='Flag for more inspection',
-        #     layout=layout, button_style='warning'))
-        b = widgets.Button(
-            description='flag', tooltip='Flag for more inspection',
-            layout=layout)
-        b.style.button_color = 'Orange'
-        buttons.append(b)
-
-        b = widgets.Button(
-            description='bad', tooltip="Bad data (e.g. low S/N); can't measure z",
-            layout=layout)
-        b.style.button_color = 'Gold'
-        buttons.append(b)
-
-        buttons.append(widgets.Button(
-            description='no', tooltip='OK data but redshift is not correct',
-            layout=layout, button_style='danger'))
-        buttons.append(widgets.Button(
-            description='maybe', tooltip='Uncertain if redshift is correct',
-            layout=layout, button_style='primary'))
-        buttons.append(widgets.Button(
-            description='yes', tooltip='Confident that redshift is correct',
-            layout=layout, button_style='success'))
-        buttons.append(widgets.Button(
-            description='next', tooltip='Skip to next target without recording yes/no/maybe',
-            layout=layout))
-
-        for b in buttons:
-            b.on_click(callback)
-
-        display(widgets.HBox(buttons))
-
-    def inspect(self):
-        def callback(source):
-            if source.description == 'prev':
-                self.prev()
-            elif source.description == 'next':
-                self.next()
-            elif source.description in ['yes', 'maybe', 'no', 'flag']:
-                targetid = self.zbest['TARGETID'][self.izbest]
-                z = self.zbest['Z'][self.izbest]
                 spectype = self.zbest['SPECTYPE'][self.izbest]
                 subtype = self.zbest['SUBTYPE'][self.izbest]
 
@@ -577,6 +513,11 @@ class Inspector():
             b.on_click(callback)
 
         display(widgets.HBox(buttons))
+
+        #- Don't display widget close button; javascript magic code from
+        #- https://groups.google.com/forum/#!topic/jupyter/r67iMlSmuEg
+        hideclose = "<script>$('.widget-area .prompt .close').hide()</script>"
+        display(HTML(hideclose))
 
     def next(self):
         if self.ispec+1 < self.nspec:
