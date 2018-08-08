@@ -269,15 +269,16 @@ def load_spectra(specfile, zbestfile=None):
     return Inspector(spectra, zbest)
 
 class Inspector(): 
-    """An interface to plotting spectra with Bokeh.
-
-    Parameters
-    ----------
-    spectra : :class:`desispec.spectra.Spectra` object
-    zbest : Table of zbest output from redrock
-    """
+    """An interface to plotting spectra with Bokeh in a Jupyter notebook"""
 
     def __init__(self, spectra, zbest):
+        """Create an Inspector object.
+
+        Parameters
+        ----------
+        spectra : :class:`desispec.spectra.Spectra` object
+        zbest : Table of zbest output from redrock
+        """
         self.zbest = zbest
         self.spectra = spectra
         self.templates = _read_templates()
@@ -312,11 +313,21 @@ class Inspector():
         
         output_notebook()
 
+    #- Property accessors for common target properties
     @property
     def z(self):
-        """This is used in several places, so best to make it a property.
-        """
+        """The redshift of the current target."""
         return self.zbest[self.izbest]['Z']
+
+    @property
+    def spectype(self):
+        """The spectral classification type of the current target."""
+        return self.zbest[self.izbest]['SPECTYPE']
+
+    @property
+    def targetid(self):
+        """The targetid of the current target."""
+        return self.zbest[self.izbest]['TARGETID']
 
     def select(self, targetids, verbose=False):
         '''Filter spectra to only the specified targetids
@@ -465,6 +476,88 @@ class Inspector():
         self._update()
         self._add_inspection_buttons()
 
+    def _update(self, ispec=None):
+        '''Update the data and plots for target number ispec
+
+        If ispec is None, use self.ispec; otherwise set self.ispec = ispec
+        '''
+        if ispec is not None:
+            self.ispec = ispec
+
+        self._update_data()
+        if not self._plotted:
+            return
+
+        self._update_xylim()
+        self._update_lines()
+
+        zb = self.zbest[self.izbest]
+        title = '{0} z={1:.4f} zwarn={2}'.format(
+            zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
+        self.specplot.title.text = title
+
+        self._update_info_div()
+        self._update_cutout()
+
+        push_notebook(handle=self.plot_handle)
+
+    def _update_data(self, ispec=None):
+        '''
+        Update the data containers for target number ispec
+
+        If ispec is None, use self.ispec; otherwise set self.ispec = ispec
+
+        updates self.ispec, .izbest, .data, .xdata
+        '''
+        if ispec is not None:
+            self.ispec = ispec
+
+        targetid = self.spectra.fibermap['TARGETID'][self.ispec]
+        self.izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
+        zb = self.zbest[self.izbest]
+        tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
+        coeff = zb['COEFF'][0:tx.nbasis]
+        model = tx.flux.T.dot(coeff).T
+        for channel in ('b', 'r', 'z'):
+            wave = self.spectra.wave[channel]
+            flux = self.spectra.flux[channel][self.ispec]
+            ivar = self.spectra.ivar[channel][self.ispec]
+            xwave = np.arange(wave[0], wave[-1], 3)
+            xflux, xivar = resample_flux(xwave, wave, flux, ivar=ivar, extrapolate=False)
+            xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
+            rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
+            if channel in self.data:
+                self.xdata[channel].data['wave'] = xwave
+                self.xdata[channel].data['flux'] = xflux
+                self.xdata[channel].data['ivar'] = xivar
+                self.xdata[channel].data['model'] = xmodel
+                self.data[channel].data['wave'] = wave
+                self.data[channel].data['flux'] = flux
+                self.data[channel].data['ivar'] = ivar
+                self.data[channel].data['model'] = rmodel
+            else:
+                self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
+                                                           ivar=ivar, model=rmodel))
+                self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
+                                                            ivar=xivar, model=xmodel))
+
+    def _update_xylim(self):
+        '''Update the spectrum and zoom plots xy limits for current data'''
+        ymin = ymax = 0.0
+        for channel in ['b', 'r', 'z']:
+            model = self.data[channel].data['model']
+            flux = self.data[channel].data['flux']
+            ymax = max(ymax, np.max(model)*1.05)
+            ymax = max(ymax, np.percentile(flux, 98))
+            ymin = min(ymin, np.percentile(flux, 10))
+            ymin = min(0, ymin)
+
+        self.specplot.y_range.start = ymin
+        self.specplot.y_range.end = ymax
+
+        self.zoomplot.x_range.start = 3727*(1 + self.z) - 100
+        self.zoomplot.x_range.end = 3727*(1 + self.z) + 100
+
     def _update_cutout(self, zoom=13, layer='ls-dr67'):
         """Update image cutout plot.
 
@@ -500,54 +593,26 @@ class Inspector():
 
         return v
 
-    def _update_xylim(self):
-        ymin = ymax = 0.0
-        for channel in ['b', 'r', 'z']:
-            model = self.data[channel].data['model']
-            flux = self.data[channel].data['flux']
-            ymax = max(ymax, np.max(model)*1.05)
-            ymax = max(ymax, np.percentile(flux, 98))
-            ymin = min(ymin, np.percentile(flux, 10))
-            ymin = min(0, ymin)
-
-        self.specplot.y_range.start = ymin
-        self.specplot.y_range.end = ymax
-
-        self.zoomplot.x_range.start = 3727*(1 + self.z) - 100
-        self.zoomplot.x_range.end = 3727*(1 + self.z) + 100
-
-    def _update_data(self, ispec=None):
-        if ispec is not None:
-            self.ispec = ispec
-
-        targetid = self.spectra.fibermap['TARGETID'][self.ispec]
-        self.izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
+    def _update_info_div(self):
+        '''Update the text div with information about the current target'''
+        fibermap = self.spectra.fibermap[self.ispec]
         zb = self.zbest[self.izbest]
-        tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
-        coeff = zb['COEFF'][0:tx.nbasis]
-        model = tx.flux.T.dot(coeff).T
-        for channel in ('b', 'r', 'z'):
-            wave = self.spectra.wave[channel]
-            flux = self.spectra.flux[channel][self.ispec]
-            ivar = self.spectra.ivar[channel][self.ispec]
-            xwave = np.arange(wave[0], wave[-1], 3)
-            xflux, xivar = resample_flux(xwave, wave, flux, ivar=ivar, extrapolate=False)
-            xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
-            rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
-            if channel in self.data:
-                self.xdata[channel].data['wave'] = xwave
-                self.xdata[channel].data['flux'] = xflux
-                self.xdata[channel].data['ivar'] = xivar
-                self.xdata[channel].data['model'] = xmodel
-                self.data[channel].data['wave'] = wave
-                self.data[channel].data['flux'] = flux
-                self.data[channel].data['ivar'] = ivar
-                self.data[channel].data['model'] = rmodel
-            else:
-                self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
-                                                           ivar=ivar, model=rmodel))
-                self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
-                                                            ivar=xivar, model=xmodel))
+
+        info = list()
+        info.append('<table>')
+        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
+        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
+        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        info.append('</table>')
+
+        self.info_div.text = '\n'.join(info)
+
+    #-------------------------------------------------------------------------
+    #- Navigation and visual inspection buttons
 
     def _add_inspection_buttons(self):
         #- Create the button objects
@@ -635,6 +700,9 @@ class Inspector():
         else:
             print('Already at first target')
         self._update()
+
+    #-------------------------------------------------------------------------
+    #- Toggling emission and absorption line markers
 
     def emission(self, toggle=None):
         """Toggle the display of known emission lines.
@@ -736,46 +804,4 @@ class Inspector():
         """
         return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
 
-    def _update_info_div(self):
-        '''Update the text div with information about the current target'''
-        fibermap = self.spectra.fibermap[self.ispec]
-        zb = self.zbest[self.izbest]
 
-        info = list()
-        info.append('<table>')
-        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
-        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
-        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
-        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
-        info.append('</table>')
-
-        self.info_div.text = '\n'.join(info)
-
-    def _update(self, ispec=None):
-        '''Update the data and plots for target number ispec
-
-        If ispec is None, update to match self.ispec, otherwise set
-        self.ispec = ispec
-        '''
-        if ispec is not None:
-            self.ispec = ispec
-
-        self._update_data()
-        if not self._plotted:
-            return
-
-        self._update_xylim()
-        self._update_lines()
-
-        zb = self.zbest[self.izbest]
-        title = '{0} z={1:.4f} zwarn={2}'.format(
-            zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
-        self.specplot.title.text = title
-
-        self._update_info_div()
-        self._update_cutout()
-
-        push_notebook(handle=self.plot_handle)
