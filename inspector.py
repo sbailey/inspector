@@ -1,7 +1,7 @@
 '''
 Inspector: it's for inspecting DESI spectra
 
-Stephen Bailey
+Stephen Bailey & Ben Weaver
 Spring 2018
 '''
 
@@ -11,7 +11,7 @@ import numpy as np
 from astropy.table import Table
 
 import ipywidgets as widgets
-from IPython.display import display
+from IPython.display import display, HTML
 
 from bokeh.io import push_notebook, show, output_notebook
 from bokeh.plotting import figure
@@ -28,9 +28,6 @@ from desispec.interpolation import resample_flux
 from desitarget.targetmask import desi_mask, bgs_mask, mws_mask
 
 import redrock.templates
-from redrock.rebin import trapz_rebin
-
-from IPython.core.display import display, HTML
 
 lines = [
     #
@@ -88,12 +85,12 @@ lines = [
     {"name" : "Hα",   "longname" : "Balmer α",         "lambda" : 6562.801, "emission": False },
     ]
 
-def airtovac(l):
+def _airtovac(w):
     """Convert air wavelengths to vacuum wavelengths. Don't convert less than 2000 Å.
 
     Parameters
     ----------
-    l : :class:`float`
+    w : :class:`float`
         Wavelength [Å] of the line in air.
 
     Returns
@@ -101,25 +98,30 @@ def airtovac(l):
     :class:`float`
         Wavelength [Å] of the line in vacuum.
     """
-    if l < 2000.0:
-        return l;
-    vac = l
+    if w < 2000.0:
+        return w;
+    vac = w
     for iter in range(2):
         sigma2 = (1.0e4/vac)*(1.0e4/vac)
         fact = 1.0 + 5.792105e-2/(238.0185 - sigma2) + 1.67917e-3/(57.362 - sigma2)
-        vac = l*fact
+        vac = w*fact
     return vac
 
 #- Mapping of human friendly strings to integers for visual scan results
-scan_results = {
-    'flag': -1, -1: 'flag',     #- flag for data expert followup
-    'bad':   0,  0: 'bad',      #- bad target (e.g. low S/N, can't measure z)
-    'no':    1,  1: 'no',       #- ok data but wrong redshift
-    'maybe': 2,  2: 'maybe',    #- redshift might be right
-    'yes':   3,  3: 'yes',      #- redshift definitely is right
+scan_map = {
+    'flag': -1,     #- flag for data expert followup
+    'bad':   0,     #- bad target (e.g. low S/N, can't measure z)
+    'no':    1,     #- ok data but wrong redshift
+    'maybe': 2,     #- redshift might be right
+    'yes':   3,     #- redshift definitely is right
 }
+#- Add reverse lookup (int -> string) to scan_map
+scan_names = list(scan_map.keys())
+scan_values = [scan_map[name] for name in scan_names]
+for _name, _value in zip(scan_names, scan_values):
+    scan_map[_value] = _name
 
-def read_templates():
+def _read_templates():
     """Retrieve redrock templates.
 
     Returns
@@ -142,7 +144,21 @@ def read_templates():
     sys.stdout = saved_stdout
     return templates
 
-def coadd(wave, flux, ivar, rdat):
+def _coadd(wave, flux, ivar, rdat):
+    '''
+    Return weighted coadd of spectra
+
+    Parameters
+    ----------
+    wave : 1D[nwave] array of wavelengths
+    flux : 2D[nspec, nwave] array of flux densities
+    ivar : 2D[nspec, nwave] array of inverse variances of `flux`
+    rdat : 3D[nspec, ndiag, nwave] sparse diagonals of resolution matrix
+
+    Returns
+    -------
+        coadded spectrum (wave, outflux, outivar, outrdat)
+    '''
     nspec, nwave = flux.shape
     unweightedflux = np.zeros(nwave, dtype=flux.dtype)
     weightedflux = np.zeros(nwave, dtype=flux.dtype)
@@ -163,13 +179,27 @@ def coadd(wave, flux, ivar, rdat):
 
     return wave, outflux, outivar, outrdat
 
-def coadd_targets(spectra, targetids=None):
+def _coadd_targets(spectra, targetids=None):
     '''
     Coadds individual exposures of the same targets; returns new Spectra object
+
+    Parameters
+    ----------
+    spectra : :class:`desispec.spectra.Spectra`
+    targetids : (optional) array-like subset of target IDs to keep
+
+    Returns
+    -------
+    coadded_spectra : :class:`desispec.spectra.Spectra` where individual
+        spectra of each target have been combined into a single spectrum
+        per camera.
+
+    Note: coadds per camera but not across cameras.
     '''
     if targetids is None:
         targetids = spectra.target_ids()
 
+    #- Create output arrays to fill
     ntargets = spectra.num_targets()
     wave = dict()
     flux = dict()
@@ -183,13 +213,14 @@ def coadd_targets(spectra, targetids=None):
         ndiag = spectra.resolution_data[channel].shape[1]
         rdat[channel] = np.zeros((ntargets, ndiag, nwave))
 
+    #- Loop over targets, coadding all spectra for each target
     fibermap = Table(dtype=spectra.fibermap.dtype)
     for i, targetid in enumerate(targetids):
         ii = np.where(spectra.fibermap['TARGETID'] == targetid)[0]
         fibermap.add_row(spectra.fibermap[ii[0]])
         for channel in spectra.bands:
             if len(ii) > 1:
-                outwave, outflux, outivar, outrdat = coadd(
+                outwave, outflux, outivar, outrdat = _coadd(
                     spectra.wave[channel],
                     spectra.flux[channel][ii],
                     spectra.ivar[channel][ii],
@@ -212,32 +243,45 @@ def coadd_targets(spectra, targetids=None):
             meta=spectra.meta)
 
 def load_spectra(specfile, zbestfile=None):
-    '''TODO: document'''
+    '''
+    Load spectra and return an Inspector object
+
+    Parameters
+    ----------
+    specfile : full path to input spectra file
+    zbestfile : (optional) full path to input zbest file
+
+    Returns:
+    inspector : :class:`Inspector` object loaded with spectra from file
+
+    If `zbestfile` is None, looks for zbest file in same directory as `specfile`
+    '''
     if zbestfile is None:
         specdir, basename = os.path.split(specfile)
         if not basename.startswith('spectra'):
             raise ValueError("Can't derive zbest filename if spectra filename {} doesn't match spectra*.fits".format(basename))
         zbestfile = os.path.join(specdir, basename.replace('spectra', 'zbest'))
 
-        zbest = Table.read(zbestfile, 'ZBEST')
-        spectra = coadd_targets(desispec.io.read_spectra(specfile),
-                targetids=zbest['TARGETID'])
+    zbest = Table.read(zbestfile, 'ZBEST')
+    spectra = _coadd_targets(desispec.io.read_spectra(specfile),
+            targetids=zbest['TARGETID'])
 
     return Inspector(spectra, zbest)
 
 class Inspector(): 
-    """An interface to plotting spectra with Bokeh.
-
-    Parameters
-    ----------
-    spectra : :class:`desispec.spectra.Spectra` object
-    zbest : Table of zbest output from redrock
-    """
+    """An interface to plotting spectra with Bokeh in a Jupyter notebook"""
 
     def __init__(self, spectra, zbest):
+        """Create an Inspector object.
+
+        Parameters
+        ----------
+        spectra : :class:`desispec.spectra.Spectra` object
+        zbest : Table of zbest output from redrock
+        """
         self.zbest = zbest
         self.spectra = spectra
-        self.templates = read_templates()
+        self.templates = _read_templates()
         self.nspec = len(self.zbest)
 
         assert np.all(self.spectra.target_ids() == self.zbest['TARGETID'])
@@ -246,10 +290,11 @@ class Inspector():
         self.data = dict()     #- high resolution
         self.xdata = dict()    #- low resolution
         self.ispec = 0
-        self.izbest = self._get_data(self.ispec)
+        self._update_data()
         self._emission = False
         self._absorption = False
         self.print_targets_info()
+        self._plotted = False
         
         #- dictionary for holding results of visual scan
         self.visual_scan = Table(dtype=[
@@ -258,30 +303,46 @@ class Inspector():
             ('z', float),
             ('spectype', 'S6'),
             ('subtype', 'S6'),
-            ('result', 'int16'),
+            ('intresult', 'int16'),
+            ('result', 'S6')
         ])
-        for name in ['flag', 'bad', 'no', 'maybe', 'yes']:
-            key = 'VSCAN{:02d}'.format(scan_results[name])
+        #- Add header keywords for mapping scan names/values
+        for value, name in sorted(zip(scan_values, scan_names)):
+            key = 'VSCAN{:02d}'.format(value)
             self.visual_scan.meta[key] = name
         
         output_notebook()
 
+    #- Property accessors for common target properties
     @property
     def z(self):
-        """This is used in several places, so best to make it a property.
-        """
+        """The redshift of the current target."""
         return self.zbest[self.izbest]['Z']
 
-    def select(self, targetids):
+    @property
+    def spectype(self):
+        """The spectral classification type of the current target."""
+        return self.zbest[self.izbest]['SPECTYPE']
+
+    @property
+    def targetid(self):
+        """The targetid of the current target."""
+        return self.zbest[self.izbest]['TARGETID']
+
+    def select(self, targetids, verbose=False):
+        '''Filter spectra to only the specified targetids
+        '''
         ii = np.in1d(self.zbest['TARGETID'], targetids)
         self.zbest = self.zbest[ii]
         self.spectra = self.spectra.select(targets=targetids)
         self.nspec = len(self.zbest)
         self.ispec = 0
-        self.izbest = 0
-        self.print_targets_info()
+        self._update()
+        if verbose:
+            self.print_targets_info()
 
     def print_targets_info(self):
+        '''Print information about the targets in this Inspector object'''
         ntargets = self.spectra.num_targets()
         fm = self.spectra.fibermap
         nexp = len(fm)
@@ -295,18 +356,26 @@ class Inspector():
             nelg, nlrg, nqso, nbgs, nmws))
 
     def plot(self):
+        '''
+        Plot the spectra
+        '''
 
         #- Make notebook use full width of screen
         display(HTML("<style>.container { width:100% !important; }</style>"))
 
+        #-----
+        #- Main spectrum plot; use p for shorthand
+        #- set dummy y_range that will be updated later
         tools = 'pan,box_zoom,wheel_zoom,undo,redo,reset,save'
-        self.p = p = figure(plot_height=400, plot_width=800,
+        self.specplot = p = figure(plot_height=400, plot_width=800,
+                        y_range=(-1,1),
                         output_backend="webgl",
                         toolbar_location='above', tools=tools)
 
         p.toolbar.active_drag = p.tools[0]    #- pan
         p.toolbar.active_scroll = p.tools[2]  #- wheel zoom
 
+        #- Assemble data for the current spectrum
         colors = dict(b='#1f77b4', r='#d62728', z='maroon')
         flux_lines = list()
         model_lines = list()
@@ -318,19 +387,21 @@ class Inspector():
                 source=self.xdata[channel],
                 line_color='black', line_width=1, alpha=1.0))
 
+        #- Add horizontal line at y=0
         xtmp = [self.xdata['b'].data['wave'][0],
                 self.xdata['z'].data['wave'][-1]]
         ytmp = [0,0]
         p.line(xtmp, ytmp, color='black', alpha=0.5)
 
+        #- main spectrum plot formatting
         p.yaxis.axis_label = 'Flux [10⁻¹⁷ erg cm⁻² s⁻¹ Å⁻¹]'
         p.xaxis.axis_label = 'Wavelength [Å]'
         p.xaxis.axis_label_text_font_style = 'normal'
         p.yaxis.axis_label_text_font_style = 'normal'
         p.min_border_left = 60
         p.min_border_bottom = 40
-        self._set_ylim()
 
+        #- Add legend for flux and model lines
         legend = Legend(items=[
             ("flux",  flux_lines),
             ("model", model_lines),
@@ -338,19 +409,23 @@ class Inspector():
         p.add_layout(legend, 'center')
         p.legend.click_policy = 'hide'    #- or 'mute'
 
-        #- Zoom plot
-        pz = figure(title=None, plot_height=200, plot_width=200,
-                y_range=p.y_range, output_backend="webgl",
+        #- Unclear why this is needed here, but if it isn't, the toolbar
+        #- disappears when it is called later.
+        self._update_lines()
+
+        #-----
+        #- Zoom plot of wherever the mouse is hovering on main specplot
+        #- use pz for shorthand
+        self.zoomplot = figure(title=None,
+                plot_height=200, plot_width=200,
+                y_range=p.y_range, x_range=(5000,5100),
+                output_backend="webgl",
                 toolbar_location=None, tools=[])
         for channel in ['b', 'r', 'z']:
-            pz.line('wave', 'flux', source=self.data[channel],
+            self.zoomplot.line('wave', 'flux', source=self.data[channel],
                     line_color=colors[channel], line_width=1, line_alpha=1.0)
-            pz.line('wave', 'model', source=self.data[channel],
+            self.zoomplot.line('wave', 'model', source=self.data[channel],
                     line_color='black', line_width=1, alpha=1.0)
-
-        pz.x_range.start = 3727*(1+self.z) - 100
-        pz.x_range.end = 3727*(1+self.z) + 100
-        self.pz = pz
 
         #- Callback to update zoom window x-range
         def zoom_callback(zoomplot):
@@ -359,14 +434,10 @@ class Inspector():
                 xr.end = cb_obj.x + 100;
             """)
 
-        p.js_on_event(bokeh.events.MouseMove, zoom_callback(pz))
-        #
-        # Lines.
-        #
-        self._update_lines()
-        #
-        # Targeting information
-        #
+        p.js_on_event(bokeh.events.MouseMove, zoom_callback(self.zoomplot))
+
+        #-----
+        #- Imaging cutout of target location
         self.im = figure(plot_width=200, plot_height=200,
                          x_range=(0, 256), y_range=(0, 256),
                          x_axis_location=None, y_axis_location=None,
@@ -376,17 +447,22 @@ class Inspector():
         self.im.min_border_right = 0
         self.im.min_border_top = 0
         self.im.min_border_bottom = 0
-        u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
-                         self.spectra.fibermap[self.ispec]['DEC_TARGET'])
 
-        #- Text area
+        #- Unclear why this is needed here, but otherwise the callback
+        #- to open the URL upon clicking doesn't work
+        self._update_cutout()
+
+        #-----
+        #- Text area with targeting info
         self.info_div = Div(text='Hello<br/>There', width=400)
 
+        #-----
+        #- Put it all together
         self.plot_handle = show(
             column(
                 row(
-                    p,
-                    column(self.im, pz),
+                    self.specplot,
+                    column(self.im, self.zoomplot),
                     ),
                 row(widgetbox(self.info_div, width=600),),
                 height=550,
@@ -395,51 +471,59 @@ class Inspector():
             )
         # self.plot_handle = show(p, notebook_handle=True)
 
-        #- Repeatd code...
+        #- Update the contents of the plots
+        self._plotted = True
         self._update()
-        self.inspect()
+        self._add_inspection_buttons()
 
-    def _cutout(self, ra, dec, zoom=13, layer='sdss2'):
-        """Image plot centered on `ra`, `dec`.
-        """
-        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
-        v = "http://legacysurvey.org/viewer/?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
-        img = self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
-        radec = 'RA,dec = {:.4f}, {:.4f}'.format(ra, dec)
-        self.im.text(10, 256-30, dict(value=radec),
-            text_color='yellow', text_font_size='8pt')
-        # self.im.title.text = radec
-        callback = CustomJS(code="window.open('{}', '_blank');".format(v))
-        self.im.js_on_event('tap', callback)
-        return v
+    def _update(self, ispec=None):
+        '''Update the data and plots for target number ispec
 
-    def _set_ylim(self):
-        ymin = ymax = 0.0
-        for channel in ['b', 'r', 'z']:
-            model = self.data[channel].data['model']
-            flux = self.data[channel].data['flux']
-            ymax = max(ymax, np.max(model)*1.05)
-            ymax = max(ymax, np.percentile(flux, 98))
-            ymin = min(ymin, np.percentile(flux, 10))
-            ymin = min(0, ymin)
+        If ispec is None, use self.ispec; otherwise set self.ispec = ispec
+        '''
+        if ispec is not None:
+            self.ispec = ispec
 
-        self.p.y_range.start = ymin
-        self.p.y_range.end = ymax
+        self._update_data()
+        if not self._plotted:
+            return
 
-    def _get_data(self, ispec):
-        targetid = self.spectra.fibermap['TARGETID'][ispec]
-        izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
-        zb = self.zbest[izbest]
+        self._update_xylim()
+        self._update_lines()
+
+        zb = self.zbest[self.izbest]
+        title = '{0} z={1:.4f} zwarn={2}'.format(
+            zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
+        self.specplot.title.text = title
+
+        self._update_info_div()
+        self._update_cutout()
+
+        push_notebook(handle=self.plot_handle)
+
+    def _update_data(self, ispec=None):
+        '''
+        Update the data containers for target number ispec
+
+        If ispec is None, use self.ispec; otherwise set self.ispec = ispec
+
+        updates self.ispec, .izbest, .data, .xdata
+        '''
+        if ispec is not None:
+            self.ispec = ispec
+
+        targetid = self.spectra.fibermap['TARGETID'][self.ispec]
+        self.izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
+        zb = self.zbest[self.izbest]
         tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
         coeff = zb['COEFF'][0:tx.nbasis]
         model = tx.flux.T.dot(coeff).T
         for channel in ('b', 'r', 'z'):
             wave = self.spectra.wave[channel]
-            flux = self.spectra.flux[channel][ispec]
-            ivar = self.spectra.ivar[channel][ispec]
+            flux = self.spectra.flux[channel][self.ispec]
+            ivar = self.spectra.ivar[channel][self.ispec]
             xwave = np.arange(wave[0], wave[-1], 3)
-            xflux = resample_flux(xwave, wave, flux)
-            xivar = resample_flux(xwave, wave, ivar)
+            xflux, xivar = resample_flux(xwave, wave, flux, ivar=ivar, extrapolate=False)
             xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
             rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
             if channel in self.data:
@@ -456,15 +540,115 @@ class Inspector():
                                                            ivar=ivar, model=rmodel))
                 self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
                                                             ivar=xivar, model=xmodel))
-        return izbest
 
-    def inspect(self):
-        def callback(source):
+    def _update_xylim(self):
+        '''Update the spectrum and zoom plots xy limits for current data'''
+        ymin = ymax = 0.0
+        for channel in ['b', 'r', 'z']:
+            model = self.data[channel].data['model']
+            flux = self.data[channel].data['flux']
+            ymax = max(ymax, np.max(model)*1.05)
+            ymax = max(ymax, np.percentile(flux, 98))
+            ymin = min(ymin, np.percentile(flux, 10))
+            ymin = min(0, ymin)
+
+        self.specplot.y_range.start = ymin
+        self.specplot.y_range.end = ymax
+
+        self.zoomplot.x_range.start = 3727*(1 + self.z) - 100
+        self.zoomplot.x_range.end = 3727*(1 + self.z) + 100
+
+    def _update_cutout(self, zoom=13, layer='ls-dr67'):
+        """Update image cutout plot.
+
+        Returns URL to full interactive legacysurvey.org/viewer at ra,dec
+        for current target
+        """
+
+        #- Get ra,dec from new or old format fibermap for current target
+        try:
+            ra = self.spectra.fibermap[self.ispec]['RA_TARGET']
+            dec = self.spectra.fibermap[self.ispec]['DEC_TARGET']
+        except KeyError:
+            ra = self.spectra.fibermap[self.ispec]['TARGET_RA']
+            dec = self.spectra.fibermap[self.ispec]['TARGET_DEC']
+
+        #- JPEG cutout URL
+        u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
+
+        #- Full legacysurvey.org viewer URL
+        v = "http://legacysurvey.org/viewer/?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
+
+        #- Update cutout plot
+        img = self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
+        radec = 'RA,dec = {:.4f}, {:.4f}'.format(ra, dec)
+        self.im.text(10, 256-30, dict(value=radec),
+            text_color='yellow', text_font_size='8pt')
+        ### self.im.title.text = radec
+
+        #- Add callback to open legacysurvey.org viewer when clicking cutout
+        callback = CustomJS(code="window.open('{}', '_blank');".format(v))
+        self.im.js_event_callbacks.clear()
+        self.im.js_on_event('tap', callback)
+
+        return v
+
+    def _update_info_div(self):
+        '''Update the text div with information about the current target'''
+        fibermap = self.spectra.fibermap[self.ispec]
+        zb = self.zbest[self.izbest]
+
+        info = list()
+        info.append('<table>')
+        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
+        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
+        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
+            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        info.append('</table>')
+
+        self.info_div.text = '\n'.join(info)
+
+    #-------------------------------------------------------------------------
+    #- Navigation and visual inspection buttons
+
+    def _add_inspection_buttons(self):
+        #- Create the button objects
+        buttons = list()
+        layout = widgets.Layout(width='60px')
+        buttons.append(widgets.Button(
+            description='prev', tooltip='Go to previous target',
+            layout=layout))
+        buttons.append(widgets.Button(
+            description='flag', tooltip='Flag for more inspection',
+            layout=layout, button_style='warning'))
+        b = widgets.Button(
+            description='bad', tooltip='Bad data (e.g. low-S/N)',
+            layout=layout)
+        b.style.button_color = 'gold'
+        buttons.append(b)
+        buttons.append(widgets.Button(
+            description='no', tooltip='Redshift is not correct',
+            layout=layout, button_style='danger'))
+        buttons.append(widgets.Button(
+            description='maybe', tooltip='Uncertain if redshift is correct',
+            layout=layout, button_style='primary'))
+        buttons.append(widgets.Button(
+            description='yes', tooltip='Confident that redshift is correct',
+            layout=layout, button_style='success'))
+        buttons.append(widgets.Button(
+            description='next', tooltip='Skip to next target without recording yes/no/maybe',
+            layout=layout))
+
+        #- What to do when a button is clicked
+        def button_callback(source):
             if source.description == 'prev':
                 self.prev()
             elif source.description == 'next':
                 self.next()
-            elif source.description in ['yes', 'maybe', 'no', 'flag', 'bad']:
+            elif source.description in scan_names:
                 targetid = self.zbest['TARGETID'][self.izbest]
                 z = self.zbest['Z'][self.izbest]
                 spectype = self.zbest['SPECTYPE'][self.izbest]
@@ -482,36 +666,18 @@ class Inspector():
                     z=z,
                     spectype=spectype,
                     subtype=subtype,
-                    result=scan_results[source.description],
+                    intresult=scan_map[source.description],
+                    result=source.description,
                 ))
                 self.next()
             else:
                 raise ValueError('Unknown button {}'.format(source.description))
 
-        buttons = list()
-        layout = widgets.Layout(width='60px')
-        buttons.append(widgets.Button(
-            description='prev', tooltip='Go to previous target',
-            layout=layout))
-        buttons.append(widgets.Button(
-            description='flag', tooltip='Flag for more inspection',
-            layout=layout, button_style='warning'))
-        buttons.append(widgets.Button(
-            description='no', tooltip='Redshift is not correct',
-            layout=layout, button_style='danger'))
-        buttons.append(widgets.Button(
-            description='maybe', tooltip='Uncertain if redshift is correct',
-            layout=layout, button_style='primary'))
-        buttons.append(widgets.Button(
-            description='yes', tooltip='Confident that redshift is correct',
-            layout=layout, button_style='success'))
-        buttons.append(widgets.Button(
-            description='next', tooltip='Skip to next target without recording yes/no/maybe',
-            layout=layout))
-
+        #- Add the callback function to every button
         for b in buttons:
-            b.on_click(callback)
+            b.on_click(button_callback)
 
+        #- Display the buttons
         display(widgets.HBox(buttons))
 
         #- Don't display widget close button; javascript magic code from
@@ -520,6 +686,7 @@ class Inspector():
         display(HTML(hideclose))
 
     def next(self):
+        '''Advance to the next target'''
         if self.ispec+1 < self.nspec:
             self.ispec += 1
         else:
@@ -527,11 +694,15 @@ class Inspector():
         self._update()
 
     def prev(self):
+        '''Go to the previous target'''
         if self.ispec > 0:
             self.ispec -= 1
         else:
             print('Already at first target')
         self._update()
+
+    #-------------------------------------------------------------------------
+    #- Toggling emission and absorption line markers
 
     def emission(self, toggle=None):
         """Toggle the display of known emission lines.
@@ -569,7 +740,7 @@ class Inspector():
 
     def _update_lines(self, line_size=0.25, line_scale=2.0):
         for i, l in enumerate(lines):
-            shiftedWave = airtovac(l['lambda'])*(1.0 + self.z)
+            shiftedWave = _airtovac(l['lambda'])*(1.0 + self.z)
             visible = (self._line_in_range(shiftedWave) and
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
@@ -615,8 +786,8 @@ class Inspector():
                 l['label'] = Label(x=shiftedWave, y=y_start,
                                    text=l['name'], text_color=lc, text_alpha=0.5,
                                    visible=visible)
-                self.p.add_layout(l['span'])
-                self.p.add_layout(l['label'])
+                self.specplot.add_layout(l['span'])
+                self.specplot.add_layout(l['label'])
 
     def _line_in_range(self, l):
         """True if a spectral line is within the range of the plot.
@@ -633,37 +804,4 @@ class Inspector():
         """
         return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
 
-    def _update(self):
-        self.izbest = self._get_data(self.ispec)
-        zb = self.zbest[self.izbest]
 
-        self._set_ylim()
-
-        self.pz.x_range.start = 3727*(1 + self.z) - 100
-        self.pz.x_range.end = 3727*(1 + self.z) + 100
-
-        self._update_lines()
-        fibermap = self.spectra.fibermap[self.ispec]
-
-        title = '{0} z={1:.4f} zwarn={2}'.format(
-            zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
-        self.p.title.text = title
-
-        info = list()
-        info.append('<table>')
-        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
-        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
-        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
-        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
-        info.append('</table>')
-
-        self.info_div.text = '\n'.join(info)
-
-        #- Trigger updating image cutout
-        u = self._cutout(self.spectra.fibermap[self.ispec]['RA_TARGET'],
-                         self.spectra.fibermap[self.ispec]['DEC_TARGET'])
-
-        push_notebook(handle=self.plot_handle)

@@ -19,7 +19,7 @@ demonstration that bokeh+jupyter+NERSC could work for viewing DESI spectra.
 
 ## Getting Started
 
-See https://desi.lbl.gov/trac/wiki/Computing/JupyterAtNERSC for instructions to configure a desi-18.3 jupyter kernel at NERSC.  This only needs to be done once.
+See https://desi.lbl.gov/trac/wiki/Computing/JupyterAtNERSC for instructions to configure a desi-18.6 jupyter kernel at NERSC.  This only needs to be done once.
 
 Checkout the Inspector code on cori.nersc.gov:
 ```
