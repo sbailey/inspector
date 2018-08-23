@@ -84,5 +84,4 @@ If you really want a feature, please consider contributing it.
 
 **Stephen Bailey** Lawrence Berkeley National Lab<br/>
 **Benjamin Weaver** National Optical Astronomy Observatory<br/>
-
 Summer 2018
