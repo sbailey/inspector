@@ -27,7 +27,13 @@ Checkout the Inspector code on cori.nersc.gov:
 git clone https://github.com/sbailey/inspector
 ```
 
-Login to https://jupyter-dev.nersc.gov/user/USERNAME/tree/global/homes/s/USERNAME, substituting "USERNAME" with your NERSC username in two places in that URL.
+Get the full directory path to your home directory at NERSC (this is unfortunately necessary for the next step):
+```
+echo $HOME
+```
+
+Login to https://jupyter-dev.nersc.gov/user/USERNAME/tree/HOME substituting "USERNAME" with your NERSC username and "HOME" with the filepath to your home directory in the previous step, e.g.
+https://jupyter-dev.nersc.gov/user/johndoe/tree/global/homes/j/johndoe.
 
 **Note**: inspector is currently not compatible with the newer Jupyter Lab default interface at NERSC, thus requiring the URL messiness above; we're working with NERSC consulting to resolve that.
 
