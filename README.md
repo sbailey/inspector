@@ -38,9 +38,8 @@ https://jupyter-dev.nersc.gov/user/johndoe/tree/global/homes/j/johndoe/inspector
 
 **Note**: inspector is currently not compatible with the newer Jupyter Lab default interface at NERSC, thus requiring the URL messiness above; we're working with NERSC consulting to resolve that.
 
-After logging in with your NERSC username/password, navigate to the directory
-where you cloned the inspector repository.  Click `inspector.ipynb` to
-start the notebook and explore.
+The URL generated above should show you a directory file browser of your inspector git checkout (if not, navigate to where you did check it out).
+Click `inspector.ipynb` to start the notebook and explore.
 
 **Note**: Unfortunately jupyter does not save the generated plots in
 the notebook itself, so viewing the static notebook on github isn't
