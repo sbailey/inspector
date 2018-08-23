@@ -81,7 +81,8 @@ If you really want a feature, please consider contributing it.
 * Filtering to individual exposures or tiles
 
 <hr/>
-<bold>Stephen Bailey</bold> Lawrence Berkeley National Lab<br/>
-<bold>Benjamin Weaver</bold> National Optical Astronomy Observatory<br/>
+
+**Stephen Bailey** Lawrence Berkeley National Lab<br/>
+**Benjamin Weaver** National Optical Astronomy Observatory<br/>
 
 Summer 2018
