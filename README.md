@@ -11,11 +11,12 @@ or install any code locally.
 
 It is currently in a standalone package for exploratory development,
 but could be moved into desispec after it matures.
-
 This should be viewed as a technology demonstrator.  Details about the
 interface and implementation can and probably will (should!) change.
 The main point of releasing this package is to provide a functionally useful
 demonstration that bokeh+jupyter+NERSC could work for viewing DESI spectra.
+
+![Inspector Screenshot](screenshot.png)
 
 ## Getting Started
 
@@ -26,13 +27,17 @@ Checkout the Inspector code on cori.nersc.gov:
 git clone https://github.com/sbailey/inspector
 ```
 
-Login at https://jupyter-dev.nersc.gov and navigate to the directory
+Login to https://jupyter-dev.nersc.gov/user/USERNAME/tree/global/homes/s/USERNAME, substituting "USERNAME" with your NERSC username in two places in that URL.
+
+**Note**: inspector is currently not compatible with the newer Jupyter Lab default interface at NERSC, thus requiring the URL messiness above; we're working with NERSC consulting to resolve that.
+
+After logging in with your NERSC username/password, navigate to the directory
 where you cloned the inspector repository.  Click `inspector.ipynb` to
 start the notebook and explore.
 
-Note: Unfortunately jupyter does not save the generated plots in
+**Note**: Unfortunately jupyter does not save the generated plots in
 the notebook itself, so viewing the static notebook on github isn't
-so instructive; you'll need to really start it at NERSC yourself.
+so instructive; you'll really need to start it at NERSC yourself.
 There is a floppy disk (!) save icon on the plot that can be used to
 save the plot if you want to send it to someone else.
 
@@ -52,8 +57,6 @@ save the plot if you want to send it to someone else.
 * Highlight common emission / absorption lines.
 * Buttons for navigating previous/next target
 * Buttons for saving visual inspection results before moving to next target.
-
-![Inspector Screenshot](screenshot.png)
 
 ## What it doesn't do (yet)
 
@@ -75,4 +78,4 @@ If you really want a feature, please consider contributing it.
 **Stephen Bailey** Lawrence Berkeley National Lab<br/>
 **Benjamin Weaver** National Optical Astronomy Observatory<br/>
 
-Spring 2018
+Summer 2018
