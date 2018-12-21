@@ -301,7 +301,7 @@ class SDSSSpectra(object):
         return 0
 
 
-def load_sdss_spectra(spPlate, spZbest):
+def load_sdss_spectra(spPlate, spZbest=None):
     '''
     Load spectra and return an Inspector object
 
@@ -309,16 +309,24 @@ def load_sdss_spectra(spPlate, spZbest):
     ----------
     spPlate : :class:`str`
         Full path to input spPlate file.
-    spZbest : :class:`str`
-        Full path to input spZbest file.
+    spZbest : :class:`str`, optional
+        Full path to input spZbest file. If not provided,
+        the path will be deduced from `spPlate`.
 
     Returns
     -------
     :class:`Inspector`
         Object loaded with spectra from files.
     '''
-    # with BytesIO(sc.get(spPlate, mode='binary')) as fileobj:
-    with get_readable_fileobj(spPlate, cache=True, encoding='binary') as fileobj:
+    if spZbest is None:
+        d, b = os.path.split(spPlate)
+        dd, plate = os.path.split(d)
+        ddd, run2d = os.path.split(dd)
+        if run2d in ('26', '103', '104'):
+            spZbest = os.path.join(ddd, run2d, plate, b.replace('spPlate', 'spZbest'))
+        else:
+            spZbest = os.path.join(ddd, run2d, plate, run2d, b.replace('spPlate', 'spZbest'))
+    with BytesIO(sc.get(spPlate, mode='binary')) as fileobj:
         with fits.open(fileobj) as hdulist:
             wave = 10.0**(np.arange(hdulist['PRIMARY'].header['NAXIS1'],
                                           dtype=np.float32)*hdulist['PRIMARY'].header['COEFF1'] +
@@ -327,8 +335,7 @@ def load_sdss_spectra(spPlate, spZbest):
             ivar = hdulist['IVAR'].data
             sky = hdulist['SKY'].data
             plugmap = Table(hdulist['PLUGMAP'].data)
-    # with BytesIO(sc.get(spZbest, mode='binary')) as fileobj:
-    with get_readable_fileobj(spZbest, cache=True, encoding='binary') as fileobj:
+    with BytesIO(sc.get(spZbest, mode='binary')) as fileobj:
         with fits.open(fileobj) as hdulist:
             zbest = Table(hdulist[1].data)
             zbest_model = hdulist[2].data
@@ -496,7 +503,7 @@ class Inspector(object):
 
         #- Unclear why this is needed here, but if it isn't, the toolbar
         #- disappears when it is called later.
-        # self._update_lines()
+        self._update_lines()
 
         #-----
         #- Zoom plot of wherever the mouse is hovering on main specplot
@@ -578,7 +585,7 @@ class Inspector(object):
             return
 
         self._update_xylim()
-        # self._update_lines()
+        self._update_lines()
 
         zb = self.zbest[self.izbest]
         try:
@@ -620,41 +627,34 @@ class Inspector(object):
         except KeyError:
             model = self.templates[self.ispec, :]
             sdss_model = True
-        # for channel in ('b', 'r', 'z'):
         for channel in self.spectra.bands:
-            wave = self.spectra.wave[channel]
-            flux = self.spectra.flux[channel][self.ispec]
-            ivar = self.spectra.ivar[channel][self.ispec]
+            good = self.spectra.ivar[channel][self.ispec, :] > 0
+            wave = self.spectra.wave[channel][good]
+            flux = self.spectra.flux[channel][self.ispec, good]
+            ivar = self.spectra.ivar[channel][self.ispec, good]
             std = 1.0/np.sqrt(ivar)
             xwave = np.arange(wave[0], wave[-1], 3)
             xflux, xivar = resample_flux(xwave, wave, flux, ivar=ivar, extrapolate=False)
             xstd = 1.0/np.sqrt(xivar)
             if sdss_model:
-                xmodel = resample_flux(xwave, wave, model)
-                rmodel = model
+                xmodel = resample_flux(xwave, wave, model[good])
+                rmodel = model[good]
             else:
                 xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
                 rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
+            #
+            # Avoid warnings when the length of columns change by changing all the columns simultaneously.
+            #
+            data_update = dict(wave=wave, flux=flux, ivar=ivar, upper=(flux + std),
+                               lower=(flux - std), model=rmodel)
+            xdata_update = dict(wave=xwave, flux=xflux, ivar=xivar, upper=(xflux + xstd),
+                                lower=(xflux - xstd), model=xmodel)
             if channel in self.data:
-                self.xdata[channel].data['wave'] = xwave
-                self.xdata[channel].data['flux'] = xflux
-                self.xdata[channel].data['ivar'] = xivar
-                self.xdata[channel].data['upper'] = xflux + xstd
-                self.xdata[channel].data['lower'] = xflux - xstd
-                self.xdata[channel].data['model'] = xmodel
-                self.data[channel].data['wave'] = wave
-                self.data[channel].data['flux'] = flux
-                self.data[channel].data['ivar'] = ivar
-                self.data[channel].data['upper'] = flux + std
-                self.data[channel].data['lower'] = flux - std
-                self.data[channel].data['model'] = rmodel
+                self.data[channel].data = data_update
+                self.xdata[channel].data = xdata_update
             else:
-                self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
-                                                           ivar=ivar, upper=(flux + std),
-                                                           lower=(flux - std), model=rmodel))
-                self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
-                                                            ivar=xivar, upper=(xflux + xstd),
-                                                            lower=(xflux - xstd), model=xmodel))
+                self.data[channel] = ColumnDataSource(data_update)
+                self.xdata[channel] = ColumnDataSource(xdata_update)
 
     def _update_xylim(self):
         '''Update the spectrum and zoom plots xy limits for current data'''
@@ -783,6 +783,10 @@ class Inspector(object):
         buttons.append(widgets.Button(
             description='next', tooltip='Skip to next target without recording yes/no/maybe',
             layout=layout))
+        buttons.append(widgets.Button(description='Emission Lines', button_style='primary',
+                                      tooltip='Toggle display of emission lines.'))
+        buttons.append(widgets.Button(description='Absorption Lines', button_style='danger',
+                                      tooltip='Toggle display of absorption lines.'))
 
         #- What to do when a button is clicked
         def button_callback(source):
@@ -790,11 +794,22 @@ class Inspector(object):
                 self.prev()
             elif source.description == 'next':
                 self.next()
+            elif source.description == 'Emission Lines':
+                self.emission()
+            elif source.description == 'Absorption Lines':
+                self.absorption()
             elif source.description in scan_names:
-                targetid = self.zbest['TARGETID'][self.izbest]
+                try:
+                    targetid = self.zbest['TARGETID'][self.izbest]
+                except KeyError:
+                    targetid = self.zbest['SPECOBJID'][self.izbest]
                 z = self.zbest['Z'][self.izbest]
-                spectype = self.zbest['SPECTYPE'][self.izbest]
-                subtype = self.zbest['SUBTYPE'][self.izbest]
+                try:
+                    spectype = self.zbest['SPECTYPE'][self.izbest]
+                    subtype = self.zbest['SUBTYPE'][self.izbest]
+                except KeyError:
+                    spectype = self.zbest['CLASS'][self.izbest]
+                    subtype = self.zbest['SUBCLASS'][self.izbest]
 
                 #- remove previous result if needed
                 if targetid in self.visual_scan['targetid']:
