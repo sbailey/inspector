@@ -9,6 +9,8 @@ import os, sys, glob
 import numpy as np
 
 from astropy.table import Table
+from astropy.utils.data import get_readable_fileobj
+from astropy.io import fits
 
 import ipywidgets as widgets
 from IPython.display import display, HTML
@@ -268,10 +270,78 @@ def load_spectra(specfile, zbestfile=None):
 
     return Inspector(spectra, zbest)
 
-class Inspector(): 
+
+class SDSSSpectra(object):
+    """Simple container object for SDSS spectra.
+    """
+    def __init__(self, wave, flux, ivar, sky, plugmap):
+        self.bands = ['c']  # Coadded SDSS spectra have one channel
+        self.wave = dict(c=wave)
+        self.flux = dict(c=flux)
+        self.ivar = dict(c=ivar)
+        self.extra = dict(c=sky)
+        self.fibermap = plugmap
+
+    def wavelength_grid(self, band):
+        if band not in self.bands:
+            raise KeyError("{} is not a valid band".format(band))
+        return self.wave[band]
+
+    def target_ids(self):
+        return np.arange(self.num_spectra(), dtype=np.int32)
+
+    def num_spectra(self):
+        if self.fibermap is not None:
+            return len(self.fibermap)
+        return 0
+
+    def num_targets(self):
+        if self.fibermap is not None:
+            return len(self.fibermap)
+        return 0
+
+
+def load_sdss_spectra(spPlate, spZbest):
+    '''
+    Load spectra and return an Inspector object
+
+    Parameters
+    ----------
+    spPlate : :class:`str`
+        Full path to input spPlate file.
+    spZbest : :class:`str`
+        Full path to input spZbest file.
+
+    Returns
+    -------
+    :class:`Inspector`
+        Object loaded with spectra from files.
+    '''
+    # with BytesIO(sc.get(spPlate, mode='binary')) as fileobj:
+    with get_readable_fileobj(spPlate, cache=True, encoding='binary') as fileobj:
+        with fits.open(fileobj) as hdulist:
+            wave = 10.0**(np.arange(hdulist['PRIMARY'].header['NAXIS1'],
+                                          dtype=np.float32)*hdulist['PRIMARY'].header['COEFF1'] +
+                                hdulist['PRIMARY'].header['COEFF0'])
+            flux = hdulist['PRIMARY'].data
+            ivar = hdulist['IVAR'].data
+            sky = hdulist['SKY'].data
+            plugmap = Table(hdulist['PLUGMAP'].data)
+    # with BytesIO(sc.get(spZbest, mode='binary')) as fileobj:
+    with get_readable_fileobj(spZbest, cache=True, encoding='binary') as fileobj:
+        with fits.open(fileobj) as hdulist:
+            zbest = Table(hdulist[1].data)
+            zbest_model = hdulist[2].data
+
+    spectra = SDSSSpectra(wave, flux, ivar, sky, plugmap)
+
+    return Inspector(spectra, zbest, zbest_model)
+
+
+class Inspector(object):
     """An interface to plotting spectra with Bokeh in a Jupyter notebook"""
 
-    def __init__(self, spectra, zbest):
+    def __init__(self, spectra, zbest, templates=None):
         """Create an Inspector object.
 
         Parameters
@@ -281,11 +351,14 @@ class Inspector():
         """
         self.zbest = zbest
         self.spectra = spectra
-        self.templates = _read_templates()
+        if templates is None:
+            self.templates = _read_templates()
+        else:
+            self.templates = templates
         self.nspec = len(self.zbest)
 
-        assert np.all(self.spectra.target_ids() == self.zbest['TARGETID'])
-        assert np.all(self.spectra.target_ids() == self.spectra.fibermap['TARGETID'])
+        # assert np.all(self.spectra.target_ids() == self.zbest['TARGETID'])
+        # assert np.all(self.spectra.target_ids() == self.spectra.fibermap['TARGETID'])
 
         self.data = dict()     #- high resolution
         self.xdata = dict()    #- low resolution
@@ -295,7 +368,7 @@ class Inspector():
         self._absorption = False
         self.print_targets_info()
         self._plotted = False
-        
+
         #- dictionary for holding results of visual scan
         self.visual_scan = Table(dtype=[
             ('targetid', int),
@@ -310,7 +383,7 @@ class Inspector():
         for value, name in sorted(zip(scan_values, scan_names)):
             key = 'VSCAN{:02d}'.format(value)
             self.visual_scan.meta[key] = name
-        
+
         output_notebook()
 
     #- Property accessors for common target properties
@@ -344,16 +417,19 @@ class Inspector():
     def print_targets_info(self):
         '''Print information about the targets in this Inspector object'''
         ntargets = self.spectra.num_targets()
+        print('{} targets'.format(ntargets), end='')
         fm = self.spectra.fibermap
         nexp = len(fm)
-        nelg = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.ELG)
-        nlrg = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.LRG)
-        nqso = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.QSO)
-        nbgs = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.BGS_ANY)
-        nmws = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.MWS_ANY)
-        print('{} targets'.format(ntargets), end='')
-        print(' including {} ELG, {} LRG, {} QSO, {} BGS, {} MWS'.format(
-            nelg, nlrg, nqso, nbgs, nmws))
+        try:
+            nelg = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.ELG)
+            nlrg = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.LRG)
+            nqso = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.QSO)
+            nbgs = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.BGS_ANY)
+            nmws = np.count_nonzero(fm['DESI_TARGET'] & desi_mask.MWS_ANY)
+            print(' including {} ELG, {} LRG, {} QSO, {} BGS, {} MWS'.format(
+                nelg, nlrg, nqso, nbgs, nmws))
+        except KeyError:
+            pass
 
     def plot(self):
         '''
@@ -366,7 +442,7 @@ class Inspector():
         #-----
         #- Main spectrum plot; use p for shorthand
         #- set dummy y_range that will be updated later
-        tools = 'pan,box_zoom,wheel_zoom,undo,redo,reset,save'
+        tools = 'pan,box_zoom,wheel_zoom,crosshair,undo,redo,reset,save'
         self.specplot = p = figure(plot_height=400, plot_width=800,
                         y_range=(-1,1),
                         output_backend="webgl",
@@ -376,20 +452,29 @@ class Inspector():
         p.toolbar.active_scroll = p.tools[2]  #- wheel zoom
 
         #- Assemble data for the current spectrum
-        colors = dict(b='#1f77b4', r='#d62728', z='maroon')
+        bands = self.spectra.bands
+        colors = dict(b='#1f77b4', r='#d62728', z='maroon', c='#d62728')
         flux_lines = list()
         model_lines = list()
-        for channel in ['b', 'r', 'z']:
+        for channel in bands:
             flux_lines.append(p.line('wave', 'flux',
                 source=self.xdata[channel],
                 line_color=colors[channel], line_width=1, alpha=1.0))
+            flux_lines.append(p.line('wave', 'upper',
+                              source=self.xdata[channel],
+                              line_color=colors[channel],
+                              line_width=1, alpha=0.3))
+            flux_lines.append(p.line('wave', 'lower',
+                              source=self.xdata[channel],
+                              line_color=colors[channel],
+                              line_width=1, alpha=0.3))
             model_lines.append(p.line('wave', 'model',
                 source=self.xdata[channel],
                 line_color='black', line_width=1, alpha=1.0))
 
         #- Add horizontal line at y=0
-        xtmp = [self.xdata['b'].data['wave'][0],
-                self.xdata['z'].data['wave'][-1]]
+        xtmp = [self.xdata[bands[0]].data['wave'][0],
+                self.xdata[bands[-1]].data['wave'][-1]]
         ytmp = [0,0]
         p.line(xtmp, ytmp, color='black', alpha=0.5)
 
@@ -411,7 +496,7 @@ class Inspector():
 
         #- Unclear why this is needed here, but if it isn't, the toolbar
         #- disappears when it is called later.
-        self._update_lines()
+        # self._update_lines()
 
         #-----
         #- Zoom plot of wherever the mouse is hovering on main specplot
@@ -421,9 +506,13 @@ class Inspector():
                 y_range=p.y_range, x_range=(5000,5100),
                 output_backend="webgl",
                 toolbar_location=None, tools=[])
-        for channel in ['b', 'r', 'z']:
+        for channel in bands:
             self.zoomplot.line('wave', 'flux', source=self.data[channel],
                     line_color=colors[channel], line_width=1, line_alpha=1.0)
+            self.zoomplot.line('wave', 'upper', source=self.data[channel],
+                    line_color=colors[channel], line_width=1, line_alpha=0.3)
+            self.zoomplot.line('wave', 'lower', source=self.data[channel],
+                    line_color=colors[channel], line_width=1, line_alpha=0.3)
             self.zoomplot.line('wave', 'model', source=self.data[channel],
                     line_color='black', line_width=1, alpha=1.0)
 
@@ -489,11 +578,15 @@ class Inspector():
             return
 
         self._update_xylim()
-        self._update_lines()
+        # self._update_lines()
 
         zb = self.zbest[self.izbest]
-        title = '{0} z={1:.4f} zwarn={2}'.format(
-            zb['SPECTYPE'], zb['Z'], zb['ZWARN'])
+        try:
+            title = '{0} z={1:.4f} zwarn={2}'.format(
+                zb['SPECTYPE'].strip(), zb['Z'], zb['ZWARN'])
+        except KeyError:
+            title = '{0} ({1}) z={2:.4f} zwarn={3}'.format(
+                zb['CLASS'].strip(), zb['SUBCLASS'].strip(), zb['Z'], zb['ZWARNING'])
         self.specplot.title.text = title
 
         self._update_info_div()
@@ -512,39 +605,61 @@ class Inspector():
         if ispec is not None:
             self.ispec = ispec
 
-        targetid = self.spectra.fibermap['TARGETID'][self.ispec]
-        self.izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
+        try:
+            targetid = self.spectra.fibermap['TARGETID'][self.ispec]
+            self.izbest = np.where(self.zbest['TARGETID']==targetid)[0][0]
+        except KeyError:
+            # SDSS Spectra are row-aligned
+            targetid = self.izbest = self.ispec
         zb = self.zbest[self.izbest]
-        tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
-        coeff = zb['COEFF'][0:tx.nbasis]
-        model = tx.flux.T.dot(coeff).T
-        for channel in ('b', 'r', 'z'):
+        sdss_model = False
+        try:
+            tx = self.templates[(zb['SPECTYPE'], zb['SUBTYPE'])]
+            coeff = zb['COEFF'][0:tx.nbasis]
+            model = tx.flux.T.dot(coeff).T
+        except KeyError:
+            model = self.templates[self.ispec, :]
+            sdss_model = True
+        # for channel in ('b', 'r', 'z'):
+        for channel in self.spectra.bands:
             wave = self.spectra.wave[channel]
             flux = self.spectra.flux[channel][self.ispec]
             ivar = self.spectra.ivar[channel][self.ispec]
+            std = 1.0/np.sqrt(ivar)
             xwave = np.arange(wave[0], wave[-1], 3)
             xflux, xivar = resample_flux(xwave, wave, flux, ivar=ivar, extrapolate=False)
-            xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
-            rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
+            xstd = 1.0/np.sqrt(xivar)
+            if sdss_model:
+                xmodel = resample_flux(xwave, wave, model)
+                rmodel = model
+            else:
+                xmodel = resample_flux(xwave, tx.wave*(1+zb['Z']), model)
+                rmodel = resample_flux(wave, tx.wave*(1+zb['Z']), model)
             if channel in self.data:
                 self.xdata[channel].data['wave'] = xwave
                 self.xdata[channel].data['flux'] = xflux
                 self.xdata[channel].data['ivar'] = xivar
+                self.xdata[channel].data['upper'] = xflux + xstd
+                self.xdata[channel].data['lower'] = xflux - xstd
                 self.xdata[channel].data['model'] = xmodel
                 self.data[channel].data['wave'] = wave
                 self.data[channel].data['flux'] = flux
                 self.data[channel].data['ivar'] = ivar
+                self.data[channel].data['upper'] = flux + std
+                self.data[channel].data['lower'] = flux - std
                 self.data[channel].data['model'] = rmodel
             else:
                 self.data[channel] = ColumnDataSource(dict(wave=wave, flux=flux,
-                                                           ivar=ivar, model=rmodel))
+                                                           ivar=ivar, upper=(flux + std),
+                                                           lower=(flux - std), model=rmodel))
                 self.xdata[channel] = ColumnDataSource(dict(wave=xwave, flux=xflux,
-                                                            ivar=xivar, model=xmodel))
+                                                            ivar=xivar, upper=(xflux + xstd),
+                                                            lower=(xflux - xstd), model=xmodel))
 
     def _update_xylim(self):
         '''Update the spectrum and zoom plots xy limits for current data'''
         ymin = ymax = 0.0
-        for channel in ['b', 'r', 'z']:
+        for channel in self.spectra.bands:
             model = self.data[channel].data['model']
             flux = self.data[channel].data['flux']
             ymax = max(ymax, np.max(model)*1.05)
@@ -555,6 +670,8 @@ class Inspector():
         self.specplot.y_range.start = ymin
         self.specplot.y_range.end = ymax
 
+        self.zoomplot.y_range.start = ymin
+        self.zoomplot.y_range.end = ymax
         self.zoomplot.x_range.start = 3727*(1 + self.z) - 100
         self.zoomplot.x_range.end = 3727*(1 + self.z) + 100
 
@@ -570,8 +687,13 @@ class Inspector():
             ra = self.spectra.fibermap[self.ispec]['RA_TARGET']
             dec = self.spectra.fibermap[self.ispec]['DEC_TARGET']
         except KeyError:
-            ra = self.spectra.fibermap[self.ispec]['TARGET_RA']
-            dec = self.spectra.fibermap[self.ispec]['TARGET_DEC']
+            try:
+                ra = self.spectra.fibermap[self.ispec]['TARGET_RA']
+                dec = self.spectra.fibermap[self.ispec]['TARGET_DEC']
+            except KeyError:
+                ra = self.spectra.fibermap[self.ispec]['RA']
+                dec = self.spectra.fibermap[self.ispec]['DEC']
+                layer = 'sdss2'
 
         #- JPEG cutout URL
         u = "http://legacysurvey.org/viewer/jpeg-cutout?ra={0:f}&dec={1:f}&zoom={2:d}&layer={3}".format(ra, dec, zoom, layer)
@@ -581,7 +703,7 @@ class Inspector():
 
         #- Update cutout plot
         img = self.im.image_url([u], 1, 1, 256, 256, anchor='bottom_left')
-        radec = 'RA,dec = {:.4f}, {:.4f}'.format(ra, dec)
+        radec = 'RA, Dec = {:.4f}, {:.4f}'.format(ra, dec)
         self.im.text(10, 256-30, dict(value=radec),
             text_color='yellow', text_font_size='8pt')
         ### self.im.title.text = radec
@@ -597,16 +719,36 @@ class Inspector():
         '''Update the text div with information about the current target'''
         fibermap = self.spectra.fibermap[self.ispec]
         zb = self.zbest[self.izbest]
-
         info = list()
         info.append('<table>')
-        info.append('<tr><th>TargetID</th><td>{}</td></tr>'.format(zb['TARGETID']))
-        info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
-        info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
-        info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
-            ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
+        sdss = False
+        try:
+            targetid = zb['TARGETID']
+            label = 'Target ID'
+        except KeyError:
+            targetid = zb['SPECOBJID']
+            label = 'SpecObjID'
+            sdss = True
+        info.append('<tr><th>{0}</th><td>{1:d}</td></tr>'.format(label, targetid))
+        if sdss:
+            info.append('<tr><th>Plate</th><td>{0:d}</td></tr>'.format(plate))
+            info.append('<tr><th>MJD</th><td>{0:d}</td></tr>'.format(mjd))
+            info.append('<tr><th>Fiber Number</th><td>{0:d}</td></tr>'.format(self.ispec + 1))
+            info.append('<tr><th>BOSS_TARGET1</th><td>{0:d}</td></tr>'.format(
+                fibermap['BOSS_TARGET1']))
+            info.append('<tr><th>BOSS_TARGET2</th><td>{0:d}</td></tr>'.format(
+                fibermap['BOSS_TARGET2']))
+            info.append('<tr><th>ANCILLARY_TARGET1</th><td>{0:d}</td></tr>'.format(
+                fibermap['ANCILLARY_TARGET1']))
+            info.append('<tr><th>ANCILLARY_TARGET2</th><td>{0:d}</td></tr>'.format(
+                fibermap['ANCILLARY_TARGET2']))
+        else:
+            info.append('<tr><th>DESI_TARGET</th><td>{0}</td></tr>'.format(
+                ' '.join(desi_mask.names(fibermap['DESI_TARGET']))))
+            info.append('<tr><th>BGS_TARGET</th><td>{0}</td></tr>'.format(
+                ' '.join(bgs_mask.names(fibermap['BGS_TARGET']))))
+            info.append('<tr><th>MWS_TARGET</th><td>{0}</td></tr>'.format(
+                ' '.join(mws_mask.names(fibermap['MWS_TARGET']))))
         info.append('</table>')
 
         self.info_div.text = '\n'.join(info)
@@ -745,7 +887,7 @@ class Inspector():
                        ((l['emission'] and self._emission) or
                         (self._absorption and not l['emission'])))
             shiftedWave_y = 0.0
-            for channel in ('b', 'r', 'z'):
+            for channel in self.spectra.bands:
                 sign = -1.0
                 if l['emission']: sign = 1.0
                 y_envelope = self.xdata[channel].data['model'] + sign*line_scale/np.sqrt(self.xdata[channel].data['ivar'])
@@ -802,6 +944,5 @@ class Inspector():
         :class:`bool`
             ``True`` if the line should be plotted.
         """
-        return self.xdata['b'].data['wave'].min() < l < self.xdata['z'].data['wave'].max()
-
-
+        bands = self.spectra.bands
+        return self.xdata[bands[0]].data['wave'].min() < l < self.xdata[bands[-1]].data['wave'].max()
