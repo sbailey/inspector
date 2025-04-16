@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Search</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        label {
+            margin-right: 10px;
+            width: 200px; /* Fixed width for labels */
+            text-align: right;
+        }
+        input[type="text"] {
+            flex-grow: 0.3;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <h1>DESI Data Inspector</h1>
+    <form id="searchForm">
+        <div class="form-group">
+            <label for="radecradius">RA,Dec,Radius (deg,deg,arcsec)</label>
+            <input type="text" id="radecradius" name="radecradius" placeholder="150,20,50">
+        </div>
+        <div class="form-group">
+            <label for="targetids">TARGETIDs<br>(comma separated)</label>
+            <input type="text" id="targetids" name="targetids" placeholder="TID1,TID2,TID3...">
+        </div>
+        <div class="form-group">
+            <label for="release">Release:</label>
+            <select id="releaseSelect" name="releaseSelect">
+                <option value="fuji">fuji (EDR)</option>
+                <option value="iron">iron (DR1)</option>
+                <option value="loa" selected>loa (DR2)</option>
+                <option value="daily">daily</option>
+                <option value="custom">Custom</option>
+            </select>
+            <input type="text" id="releaseCustom" name="releaseCustom" style="display: none;" placeholder="Enter custom spectroscopic production name">
+        </div>
+        <button type="submit" id="searchTargetsButton">Search Targets</button>
+        <button type="submit" id="searchSpectraButton">Search Spectra</button>
+    </form>
+
+
+    <!--------------------------------------------------------------------->
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Function to toggle custom input visibility
+        function toggleCustomInput(selectId, inputId) {
+            const selectElement = document.getElementById(selectId);
+            const inputElement = document.getElementById(inputId);
+
+            selectElement.addEventListener('change', function() {
+                if (selectElement.value === 'custom') {
+                    inputElement.style.display = 'inline-block';
+                } else {
+                    inputElement.style.display = 'none';
+                }
+            });
+
+            // Initial check to hide custom input if not selected
+            if (selectElement.value !== 'custom') {
+                inputElement.style.display = 'none';
+            }
+        }
+
+        // Toggle custom input for Release
+        toggleCustomInput('releaseSelect', 'releaseCustom');
+
+        // Handle Search Targets button click
+        document.getElementById('searchTargetsButton').addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Get the values from the form fields
+            const radecradius = document.getElementById('radecradius').value.trim();
+            const targetids = document.getElementById('targetids').value.trim();
+
+            let release = document.getElementById('releaseSelect').value;
+            if (release === 'custom') {
+                release = document.getElementById('releaseCustom').value;
+            }
+
+            // Construct the URL
+            let url;
+            if (radecradius) {
+                url = `${release}/targets/radec/${radecradius}`;
+            } else if (targetids) {
+                url = `${release}/targets/${targetids}`;
+            } else {
+                alert("Please fill in either the RA,Dec,Radius field or the TARGETIDs field.");
+                return;
+            }
+
+            // Redirect to the constructed URL
+            window.location.href = url;
+        });
+
+        // Handle Search Spectra button click
+        document.getElementById('searchSpectraButton').addEventListener('click', function(event) {
+            event.preventDefault(); // Prevent the default form submission
+
+            // Get the values from the form fields
+            const radecradius = document.getElementById('radecradius').value;
+            const targetids = document.getElementById('targetids').value.trim();
+
+            let release = document.getElementById('releaseSelect').value;
+            if (release === 'custom') {
+                release = document.getElementById('releaseCustom').value;
+            }
+
+            // Construct the URL
+            let url;
+            if (radecradius) {
+                url = `${release}/spectra/radec/${radecradius}`;
+            } else if (targetids) {
+                url = `${release}/spectra/${targetids}`;
+            } else {
+                alert("Please fill in either the RA,Dec,Radius field or the TARGETIDs field.");
+                return;
+            }
+
+            // Redirect to the constructed URL
+            window.location.href = url;
+        });
+
+        // Handle Enter key press in the form
+        document.getElementById('searchForm').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault(); // Prevent the default form submission
+
+                // Trigger the Search Targets button
+                document.getElementById('searchTargetsButton').click();
+            }
+        });
+
+    });
+    </script>
+</body>
+</html>

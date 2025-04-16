@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Target Inventory</title>
+    <style>
+        body {
+            font-family: sans-serif;
+        }
+        table {
+            width: 40%;
+            border-collapse: collapse;
+            margin: 5px 0;
+            font-size: 18px;
+            text-align: left;
+            /* float: left; */
+            margin-right: 10px;
+        }
+        th, td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>{{ header }}</h1>
+    <p>{{ description }}</p>
+    {{ table_html|safe }}
+    {% if ra is not none %}
+    <img src="https://www.legacysurvey.org/viewer/cutout.jpg?ra={{ ra }}&dec={{ dec }}&layer=ls-dr9&pixscale={{ pixscale }}" alt="imaging cutout of requested field">
+    {% endif %}
+    <p>{{ footer|safe }}</p>
+</body>
+</html>
+
