@@ -1,12 +1,16 @@
 import io
+import os
+import glob
 import tempfile
 from urllib.parse import urlencode
 import hashlib
 import uuid
 
 from flask import Flask, request, jsonify, render_template, make_response
+from astropy.table import Table
+
 from desispec import inventory
-from desispec.io import read_spectra_parallel, write_spectra
+from desispec.io import read_spectra_parallel, write_spectra, specprod_root
 
 from prospect.viewer import plotspectra
 
@@ -14,12 +18,18 @@ app = Flask(__name__)
 
 @app.route("/")
 def hello_world():
-    base_url = request.base_url.rstrip('/')  # the URL without the ?query=blat&format=foo options
-    return render_template('homepage.html', base_url=base_url)
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
+    return render_template('homepage.html', root_url=root_url)
+
+@app.route("/examples")
+def examples():
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
+    return render_template('examples.html', root_url=root_url)
 
 @app.route("/search")
 def search():
-    return render_template('search.html')
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
+    return render_template('search.html', root_url=root_url)
 
 def _current_url_as_format(fmt):
     """
@@ -36,6 +46,7 @@ def render_table_html(table, header, description=''):
     """
     TODO: document
     """
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
     with io.StringIO() as buffer:
         table.write(buffer, format='ascii.html')
         table_html = buffer.getvalue()
@@ -57,7 +68,8 @@ def render_table_html(table, header, description=''):
     else:
         ra = dec = pixscale = None
 
-    return render_template('inventory.html', table_html=table_html,
+    return render_template('inventory.html', root_url=root_url,
+                           table_html=table_html,
                            header=header, description=description, footer=footer,
                            ra=ra, dec=dec, pixscale=pixscale)
 
@@ -341,9 +353,41 @@ def plot_tiles_spectra_targetids(specprod, targetids):
     targetcat = inventory.target_tiles(targetids=targetids, specprod=specprod)
 
     if len(targetcat) == 0:
+        return f'No targets found with TARGETIDs={targetids}'
+
+    print(f'Reading {len(targetcat)} spectra')
+    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+
+    if format_type == 'html':
+        return render_spectra_plot(spectra)
+    elif format_type == 'fits':
+        return render_spectra_fits(spectra)
+    else:
+        return f'Unrecognized format {format_type}', 400
+
+@app.route("/<string:specprod>/spectra/tiles/<int:tileid>/<string:fibers>")
+def plot_tiles_spectra_fibers(specprod, tileid, fibers):
+    try:
+        format_type = get_spectra_format()
+    except ValueError as err:
+        return str(err), 400
+
+    fibers = list(map(int, fibers.split(',')))
+
+    #- presumably we won't be running this code past the year 2100
+    nightdirs = sorted(glob.glob(specprod_root(specprod)+f'/tiles/cumulative/{tileid}/20??????'))
+    lastnight = int(os.path.basename(nightdirs[-1]))
+
+    targetcat = Table()
+    targetcat['FIBER'] = fibers
+    targetcat['LASTNIGHT'] = lastnight
+    targetcat['TILEID'] = tileid
+
+    if len(targetcat) == 0:
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
 
     print(f'Reading {len(targetcat)} spectra')
+    print(targetcat)
     spectra = read_spectra_parallel(targetcat, specprod=specprod)
 
     if format_type == 'html':

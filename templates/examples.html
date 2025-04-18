@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Examples - DESI Data Inspector{% endblock %}
+
+{% block content %}
+
+<h2>Example URLs</h2>
+
+<p>Search form:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/search">{{ root_url }}/search</a>
+</p>
+
+<p>See what targets from the loa production are within 50 arcsec of RA,dec=(150,20) degrees:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/targets/radec/150,20,50">{{ root_url }}/loa/targets/radec/150,20,50</a>
+</p>
+
+<p>Download that table as a FITS file, or as json/csv/ascii:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/targets/radec/150,20,50?format=fits">{{ root_url }}/loa/targets/radec/150,20,50<b>?format=fits</b></a><br>
+<a href="{{ root_url }}/loa/targets/radec/150,20,50?format=json">{{ root_url }}/loa/targets/radec/150,20,50<b>?format=json</b></a><br>
+<a href="{{ root_url }}/loa/targets/radec/150,20,50?format=csv">{{ root_url }}/loa/targets/radec/150,20,50<b>?format=csv</b></a><br>
+<a href="{{ root_url }}/loa/targets/radec/150,20,50?format=ascii">{{ root_url }}/loa/targets/radec/150,20,50<b>?format=ascii</b></a><br>
+(for symmetry with these URLs, the original table view can also be specified with "?format=html")
+</p>
+
+<p>Interactively view the spectra:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/spectra/radec/150,20,50">{{ root_url }}/loa/<b>spectra</b>/radec/150,20,50</a><br>
+</p>
+
+<p>Download those spectra as a FITS file, using the same format as DESI coadded spectra:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/spectra/radec/150,20,50?format=fits">{{ root_url }}/loa/spectra/radec/150,20,50<b>?format=fits</b></a><br>
+</p>
+
+<p>Instead of an RA,DEC,RADIUS search, you can also search by TARGETIDs:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/targets/39628266889285745,39628266893475934">{{ root_url }}/loa/targets/<b>39628261201809937,39628261205999711</b></a><br>
+Note: All of the same "?format=html|fits|json|csv|ascii" options work for this TARGETID-based view as well.
+</p>
+
+<p>View the spectra for those TARGETIDs:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/spectra/39628266889285745,39628266893475934">{{ root_url }}/loa/spectra/39628261201809937,39628261205999711</a><br>
+</p>
+
+<p>Download a FITS file with the spectra for those TARGETIDs:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/spectra/39628266889285745,39628266893475934?format=fits">{{ root_url }}/loa/spectra/39628261201809937,39628261205999711?format=fits</a><br>
+</p>
+
+<p>By default, the results are for healpix-based spectra which coadd data for the same TARGETID when observed on multiple tiles.
+To get tile-based spectra instead:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/targets/tiles/radec/150,20,50">{{ root_url }}/loa/targets/<b>tiles</b>/radec/150,20,50</a><br>
+<a href="{{ root_url }}/loa/spectra/tiles/radec/150,20,50">{{ root_url }}/loa/spectra/<b>tiles</b>/radec/150,20,50</a><br>
+<a href="{{ root_url }}/loa/targets/tiles/39628266889285745,39628266893475934">{{ root_url }}/loa/targets/<b>tiles</b>/39628261201809937,39628261205999711</a><br>
+<a href="{{ root_url }}/loa/spectra/tiles/39628266889285745,39628266893475934">{{ root_url }}/loa/spectra/<b>tiles</b>/39628261201809937,39628261205999711</a><br>
+</p>
+
+<p>Although healpix is default, it can also be explicitly specified for symmetry with the tile-based URLs:</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/loa/targets/healpix/radec/150,20,50">{{ root_url }}/loa/targets/<b>healpix</b>/radec/150,20,50</a><br>
+<a href="{{ root_url }}/loa/spectra/healpix/radec/150,20,50">{{ root_url }}/loa/spectra/<b>healpix</b>/radec/150,20,50</a><br>
+<a href="{{ root_url }}/loa/targets/healpix/39628266889285745,39628266893475934">{{ root_url }}/loa/targets/<b>healpix</b>/39628261201809937,39628261205999711</a><br>
+<a href="{{ root_url }}/loa/spectra/healpix/39628266889285745,39628266893475934">{{ root_url }}/loa/spectra/<b>healpix</b>/39628261201809937,39628261205999711</a><br>
+</p>
+
+{% endblock %}

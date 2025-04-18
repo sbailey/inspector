@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}DESI Data Inspector{% endblock %}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .header {
+            margin-bottom: 20px;
+        }
+        .header h1 {
+            margin: 0;
+        }
+        .nav-links {
+            margin-top: 10px;
+        }
+        .nav-links a {
+            margin-right: 10px;
+            text-decoration: none;
+            color: #007BFF;
+        }
+        .nav-links a:hover {
+            text-decoration: underline;
+        }
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .indented-paragraph {
+            padding-left: 2em; /* Indents the first line by 2em */
+            margin-top: 20px; /* Adds space above the paragraph */
+            margin-bottom: 20px; /* Adds space below the paragraph */
+            line-height: 1.4; /* Increases line spacing */
+            font-size: 16px; /* Sets the font size */
+            color: #333; /* Sets the text color */
+        }
+        table {
+            width: 40%;
+            border-collapse: collapse;
+            margin: 5px 0;
+            font-size: 18px;
+            text-align: left;
+            /* float: left; */
+            margin-right: 10px;
+        }
+        th, td {
+            padding: 8px;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        label {
+            margin-right: 10px;
+            width: 150px; /* Fixed width for labels */
+            text-align: right;
+        }
+        input[type="text"] {
+            flex-grow: 0.3;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>DESI Data Inspector</h1>
+        <div class="nav-links">
+            <a href="{{ base_url }}/search">Search</a>
+            <a href="{{ base_url }}/examples">Examples</a>
+        </div>
+    </div>
+    <div class="content">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>
