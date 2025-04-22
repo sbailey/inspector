@@ -15,6 +15,7 @@ from desispec.io import read_spectra_parallel, write_spectra, specprod_root
 from prospect.viewer import plotspectra
 
 app = Flask(__name__)
+app.url_map.strict_slashes = False
 
 @app.route("/")
 def hello_world():
@@ -225,9 +226,11 @@ def render_spectra_plot(spectra):
         prospectfile = f'{tmpdir}/prospect.html'
         print(f'Writing prospect spectra to {prospectfile}')
 
+        print(f'{len(spectra.fibermap)=}  {len(spectra.redshifts)=}')
+
         plotspectra(
                 spectra,
-                # zcatalog=spectra.extra_catalog,
+                zcatalog=spectra.redshifts,
                 outfile=prospectfile,
                 title=title,
                 with_vi_widgets=False,
@@ -281,7 +284,7 @@ def plot_healpix_spectra_radec(specprod, radec):
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
 
     print(f'Reading {len(targetcat)} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
@@ -307,7 +310,7 @@ def plot_healpix_spectra_targetids(specprod, targetids):
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
 
     print(f'Reading {len(targetcat)} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         return render_spectra_plot(spectra)
@@ -331,7 +334,7 @@ def plot_tiles_spectra_radec(specprod, radec):
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
 
     print(f'Reading {len(targetcat)} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
@@ -356,7 +359,7 @@ def plot_tiles_spectra_targetids(specprod, targetids):
         return f'No targets found with TARGETIDs={targetids}'
 
     print(f'Reading {len(targetcat)} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         return render_spectra_plot(spectra)
@@ -388,7 +391,7 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
 
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)
-    spectra = read_spectra_parallel(targetcat, specprod=specprod)
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         return render_spectra_plot(spectra)
@@ -397,6 +400,8 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
     else:
         return f'Unrecognized format {format_type}', 400
 
+if __name__ == "__main__":
+    app.run(debug=True)
 
 
 
