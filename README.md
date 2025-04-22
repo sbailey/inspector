@@ -14,10 +14,10 @@ Spring 2025
 ## Building and running podman/docker container
 
 ```
-podman build -t inspector-flask-app .
-podman run -d -p 5001:5001 --name inspector inspector-flask-app
+podman build -t desi-inspector .
+podman rm inspector
+podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector desi-inspector
 podman logs inspector
-podman container prune
 ```
 
 
