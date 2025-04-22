@@ -1,11 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}Examples - DESI Data Inspector{% endblock %}
+{% block title %}DESI Data Inspector{% endblock %}
 
 {% block content %}
 
+<p>
 The DESI Data Inspector provides interactive browsing of DESI data
 and programatic URLs for directly downloading subsets of the data.
-See the Search and Examples pages above.
+</p>
+
+<p>
+Use the <a href="search/">Search</a> page, or generate URLs like
+<pre>
+RELEASE/ targets|spectra / [tiles|healpix] / TARGETIDs|radec/RA,DEC,RADIUS [?format=html|fits|json|csv|ascii]
+</pre>
+where
+<ul>
+    <li><code>RELEASE</code> is the Data Release or Spectrosopic production name, e.g. edr, dr1, fuji, iron.</li>
+    <li><code>targets</code> or <code>spectra</code> selects between getting a table of targets or their spectra.</li>
+    <li><code>tiles</code> or <code>healpix</code> selects between tile-based or cross-tile healpix-based data (default <code>healpix</code>).</li>
+    <li><code>radec/RA,DEC,RADIUS</code> performs a cone search of <code>RADIUS</code> arcsec around <code>RA,DEC</code> (degrees).</li>
+    <li><code>TARGETIDs</code> is a comma separated list of integer <code>TARGETIDs</code>.</li>
+    <li>Optional <code>format</code> parameters control whether the results are renders as a webpage or provided as a format to download
+        (default <code>html</code>).
+        <code>html</code> and <code>fits</code> are valid formats for both spectra or targets tables; the other formats apply
+        only to targets tables.
+    </li>
+</ul>
+
+See the <a href="examples/">Examples</a> pages for details.
+</p>
 
 {% endblock %}
