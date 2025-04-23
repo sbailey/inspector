@@ -6,13 +6,17 @@ from urllib.parse import urlencode
 import hashlib
 import uuid
 
-from flask import Flask, request, jsonify, render_template, make_response
+import numpy as np
 from astropy.table import Table
+import fitsio
 
 from desispec import inventory
 from desispec.io import read_spectra_parallel, write_spectra, specprod_root
+from desispec.io import findfile
 
 from prospect.viewer import plotspectra
+
+from flask import Flask, request, jsonify, render_template, make_response
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
@@ -230,6 +234,39 @@ def tiles_targets(specprod, targetids):
     t = inventory.target_tiles(targetids=targetids, specprod=specprod)
 
     return render_table(t, format_type)
+
+@app.route("/<string:specprod>/targets/tiles/<int:tileid>/<string:fibers>")
+def plot_tiles_targets_fibers(specprod, tileid, fibers):
+    try:
+        format_type = get_table_format()
+    except ValueError as err:
+        return str(err), 400
+
+    fibers = list(map(int, fibers.split(',')))
+
+    #- Find LASTNIGHT for this tile;
+    #- presumably we won't be running this code past the year 2100
+    nightdirs = sorted(glob.glob(specprod_root(specprod)+f'/tiles/cumulative/{tileid}/20??????'))
+    lastnight = int(os.path.basename(nightdirs[-1]))
+
+    #- read fibermaps to find the TARGETIDs for these fibers
+    fiber2targetid = dict()
+    for petal in np.unique(np.asarray(fibers)//500):
+        coaddfile = findfile('coadd', tile=tileid, night=lastnight, groupname='cumulative', spectrograph=petal, specprod=specprod)
+        fm = fitsio.read(coaddfile, 'FIBERMAP', columns=('TARGETID', 'FIBER'))
+        keep = np.isin(fm['FIBER'], fibers)
+        for tid, fiber in zip(fm['TARGETID'][keep], fm['FIBER'][keep]):
+            fiber2targetid[fiber] = tid
+
+    #- Create table to render
+    targetcat = Table()
+    targetcat.meta['SPECPROD'] = specprod
+    targetcat['TARGETID'] = [fiber2targetid[f] for f in fibers]
+    targetcat['TILEID'] = tileid
+    targetcat['LASTNIGHT'] = lastnight
+    targetcat['FIBER'] = fibers
+
+    return render_table(targetcat, format_type)
 
 #-------------------------------------------------------------------------
 #- Spectra
