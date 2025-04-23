@@ -18,6 +18,8 @@ from prospect.viewer import plotspectra
 
 from flask import Flask, request, jsonify, render_template, make_response
 
+from inspector.auth import conditional_auth
+
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
@@ -26,6 +28,25 @@ MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius &le; {MAX_RADIUS
 
 MAX_SPECTRA=1000
 MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
+
+def standardize_specprod(specprod):
+    """
+    Return standardized specprod with aliases for dr1 -> iron, etc.
+    """
+    specprod = specprod.lower()
+    if specprod == 'edr':
+        return 'fuji'
+    elif specprod == 'dr1':
+        return 'iron'
+    elif specprod == 'dr2':
+        return 'loa'
+    else:
+        return specprod
+
+@app.route("/<string:specprod>/test")
+@conditional_auth
+def test_auth(specprod):
+    return f"You are allowed to access {specprod} data"
 
 @app.route("/")
 def hello_world():
@@ -191,7 +212,9 @@ def render_table(table, format_type):
 
 @app.route("/<string:specprod>/targets/radec/<string:radec>")
 @app.route("/<string:specprod>/targets/healpix/radec/<string:radec>")
+@conditional_auth
 def healpix_radec_targets(specprod, radec):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
     except ValueError as err:
@@ -207,7 +230,9 @@ def healpix_radec_targets(specprod, radec):
 
 @app.route("/<string:specprod>/targets/<string:targetids>")
 @app.route("/<string:specprod>/targets/healpix/<string:targetids>")
+@conditional_auth
 def healpix_targets(specprod, targetids):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
     except ValueError as err:
@@ -219,7 +244,9 @@ def healpix_targets(specprod, targetids):
 
 
 @app.route("/<string:specprod>/targets/tiles/radec/<string:radec>")
+@conditional_auth
 def tiles_radec_targets(specprod, radec):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
     except ValueError as err:
@@ -234,7 +261,9 @@ def tiles_radec_targets(specprod, radec):
 
 
 @app.route("/<string:specprod>/targets/tiles/<string:targetids>")
+@conditional_auth
 def tiles_targets(specprod, targetids):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
     except ValueError as err:
@@ -246,7 +275,9 @@ def tiles_targets(specprod, targetids):
     return render_table(t, format_type)
 
 @app.route("/<string:specprod>/targets/tiles/<int:tileid>/<string:fibers>")
+@conditional_auth
 def plot_tiles_targets_fibers(specprod, tileid, fibers):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
     except ValueError as err:
@@ -337,7 +368,9 @@ def render_spectra_fits(spectra):
 
 @app.route("/<string:specprod>/spectra/radec/<string:radec>")
 @app.route("/<string:specprod>/spectra/healpix/radec/<string:radec>")
+@conditional_auth
 def plot_healpix_spectra_radec(specprod, radec):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
     except ValueError as err:
@@ -366,7 +399,9 @@ def plot_healpix_spectra_radec(specprod, radec):
 
 @app.route("/<string:specprod>/spectra/<string:targetids>")
 @app.route("/<string:specprod>/spectra/healpix/<string:targetids>")
+@conditional_auth
 def plot_healpix_spectra_targetids(specprod, targetids):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
     except ValueError as err:
@@ -393,7 +428,9 @@ def plot_healpix_spectra_targetids(specprod, targetids):
 
 
 @app.route("/<string:specprod>/spectra/tiles/radec/<string:radec>")
+@conditional_auth
 def plot_tiles_spectra_radec(specprod, radec):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
     except ValueError as err:
@@ -421,7 +458,9 @@ def plot_tiles_spectra_radec(specprod, radec):
 
 
 @app.route("/<string:specprod>/spectra/tiles/<string:targetids>")
+@conditional_auth
 def plot_tiles_spectra_targetids(specprod, targetids):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
     except ValueError as err:
@@ -447,7 +486,9 @@ def plot_tiles_spectra_targetids(specprod, targetids):
         return f'Unrecognized format {format_type}', 400
 
 @app.route("/<string:specprod>/spectra/tiles/<int:tileid>/<string:fibers>")
+@conditional_auth
 def plot_tiles_spectra_fibers(specprod, tileid, fibers):
+    specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
     except ValueError as err:
