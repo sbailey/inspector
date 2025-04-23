@@ -17,6 +17,12 @@ from prospect.viewer import plotspectra
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
+MAX_RADIUS=1800  # 0.5 deg
+MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius &le; {MAX_RADIUS} arcsec'
+
+MAX_SPECTRA=1000
+MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
+
 @app.route("/")
 def hello_world():
     root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
@@ -51,6 +57,13 @@ def render_table_html(table, header, description=''):
     with io.StringIO() as buffer:
         table.write(buffer, format='ascii.html')
         table_html = buffer.getvalue()
+
+    ntargets = len(table)
+    nmax = 10000
+    if ntargets>nmax:
+        msg = f"Your query resulted in {ntargets} targets, which is too many for us to realistically display."
+        msg += f" Please limit your query to return less than {nmax} targets."
+        return msg
 
     # construct download options footer text
     footer = 'Download table as'
@@ -171,6 +184,9 @@ def healpix_radec_targets(specprod, radec):
         return str(err), 400
 
     ra,dec,radius = inventory.parse_radec_string(radec)
+    if radius > MAX_RADIUS:
+        return MAX_RADIUS_ERROR_MESSAGE
+
     t = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
     return render_table(t, format_type)
 
@@ -196,6 +212,9 @@ def tiles_radec_targets(specprod, radec):
         return str(err), 400
 
     ra,dec,radius = inventory.parse_radec_string(radec)
+    if radius > MAX_RADIUS:
+        return MAX_RADIUS_ERROR_MESSAGE
+
     t = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
     return render_table(t, format_type)
 
@@ -280,10 +299,13 @@ def plot_healpix_spectra_radec(specprod, radec):
     ra,dec,radius = inventory.parse_radec_string(radec)
     targetcat = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
 
-    if len(targetcat) == 0:
+    num_spectra = len(targetcat)
+    if num_spectra == 0:
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
+    elif num_spectra > MAX_SPECTRA:
+        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
 
-    print(f'Reading {len(targetcat)} spectra')
+    print(f'Reading {num_spectra} spectra')
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
@@ -306,10 +328,13 @@ def plot_healpix_spectra_targetids(specprod, targetids):
     targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_healpix(targetids=targetids, specprod=specprod)
 
-    if len(targetcat) == 0:
+    num_spectra = len(targetcat)
+    if num_spectra == 0:
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
+    elif num_spectra > MAX_SPECTRA:
+        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
 
-    print(f'Reading {len(targetcat)} spectra')
+    print(f'Reading {num_spectra} spectra')
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
@@ -330,10 +355,13 @@ def plot_tiles_spectra_radec(specprod, radec):
     ra,dec,radius = inventory.parse_radec_string(radec)
     targetcat = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
 
-    if len(targetcat) == 0:
+    num_spectra = len(targetcat)
+    if num_spectra == 0:
         return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
+    elif num_spectra > MAX_SPECTRA:
+        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
 
-    print(f'Reading {len(targetcat)} spectra')
+    print(f'Reading {num_spectra} spectra')
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
@@ -355,10 +383,13 @@ def plot_tiles_spectra_targetids(specprod, targetids):
     targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_tiles(targetids=targetids, specprod=specprod)
 
-    if len(targetcat) == 0:
+    num_spectra = len(targetcat)
+    if num_spectra == 0:
         return f'No targets found with TARGETIDs={targetids}'
+    elif num_spectra > MAX_SPECTRA:
+        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
 
-    print(f'Reading {len(targetcat)} spectra')
+    print(f'Reading {num_spectra} spectra')
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
@@ -376,6 +407,8 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
         return str(err), 400
 
     fibers = list(map(int, fibers.split(',')))
+    if len(fibers) > MAX_SPECTRA:
+        return MAX_SPECTRA_ERROR_MESSAGE.format(len(fibers), MAX_SPECTRA)
 
     #- presumably we won't be running this code past the year 2100
     nightdirs = sorted(glob.glob(specprod_root(specprod)+f'/tiles/cumulative/{tileid}/20??????'))
@@ -385,9 +418,6 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
     targetcat['FIBER'] = fibers
     targetcat['LASTNIGHT'] = lastnight
     targetcat['TILEID'] = tileid
-
-    if len(targetcat) == 0:
-        return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
 
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)
