@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}DESI Data Inspector{% endblock %}
+
+{% block content %}
+
+<h2>About</h2>
+
+<p>
+The DESI Data Inspector was written by Stephen Bailey (Berkeley Lab),
+building upon earlier exploratory work by Vivien Goyal and Ronit Nagarapu.
+It uses tools from open source <a href="https://github.com/desihub">DESI software</a>,
+in particular
+<a href="https://github.com/desihub/desispec">desispec</a>,
+<a href="https://github.com/desihub/redrock">redrock</a>,
+and
+<a href="https://github.com/desihub/prospect">prospect</a>,
+which were written by members of the DESI Data team.
+Under the hood the Inspector is based upon
+<a href="https://bokeh.org">Bokeh</a>,
+<a href="https://flask.palletsprojects.com">Flask</a>,
+and
+<a href="https://gunicorn.org">Gunicorn</a>.
+Portions of the Inspector were written by the <a href="https://cborg.lbl.gov">LBL CBorg Coder AI model</a>.
+</p>
+
+<p>
+For further information about DESI Data, please see our
+<a href="https://data.desi.lbl.gov/doc">DESI Data Documentation</a> site.
+</p>
+
+{% endblock %}

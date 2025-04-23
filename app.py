@@ -42,6 +42,16 @@ def search():
     root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
     return render_template('search.html', root_url=root_url)
 
+@app.route("/license")
+def license():
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
+    return render_template('license.html', root_url=root_url)
+
+@app.route("/about")
+def about():
+    root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
+    return render_template('about.html', root_url=root_url)
+
 def _current_url_as_format(fmt):
     """
     Return current URL with alternate ?format=blah option
