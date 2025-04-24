@@ -60,8 +60,9 @@ plt.show()
 
 <p>Instead of an RA,DEC,RADIUS search, you can also search by TILEID and FIBERs:</p>
 <p class="indented-paragraph">
-<a href="{{ root_url }}/loa/targets/tiles/6094/0,5,10">{{ root_url }}/loa/targets/<b>tiles/6094/0,5,10</b></a><br>
+<a href="{{ root_url }}/loa/targets/tiles/6094/0-5,10,20:22">{{ root_url }}/loa/targets/<b>tiles/6094/0-5,10,20:22</b></a><br>
 </p>
+Note: Fiber range 0-5 is 0,1,2,3,4,5 (inclusive of 5), while 0:5 is Python-like 0,1,2,3,4 (exclusive of 5).
 
 <p>Or by TARGETIDs:</p>
 <p class="indented-paragraph">

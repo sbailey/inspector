@@ -43,6 +43,27 @@ def standardize_specprod(specprod):
     else:
         return specprod
 
+def parse_fibers(fibers_string):
+    """
+    Parse fiber strings like "0-5,10:12,25" -> [0,1,2,3,4,5,10,11,25]
+    Note: A-B is inclusive of B, while A:B is python-like exclusive of B
+    """
+    fibers = list()
+    for token in fibers_string.split(','):
+        if token.isdigit():
+            fibers.append(int(token))
+        elif '-' in token:
+            first, last = token.split('-')
+            fibers.extend( np.arange(int(first), int(last)+1) )
+        elif ':' in token:
+            first, last = token.split(':')
+            fibers.extend( np.arange(int(first), int(last)) )
+        else:
+            raise ValueError(f'Failed to parse {token} as part of {fibers_string}')
+
+    return fibers
+
+
 @app.route("/<string:specprod>/test")
 @conditional_auth
 def test_auth(specprod):
@@ -283,7 +304,7 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
     except ValueError as err:
         return str(err), 400
 
-    fibers = list(map(int, fibers.split(',')))
+    fibers = parse_fibers(fibers)
 
     #- Find LASTNIGHT for this tile;
     #- presumably we won't be running this code past the year 2100
@@ -494,7 +515,7 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
     except ValueError as err:
         return str(err), 400
 
-    fibers = list(map(int, fibers.split(',')))
+    fibers = parse_fibers(fibers)
     if len(fibers) > MAX_SPECTRA:
         return MAX_SPECTRA_ERROR_MESSAGE.format(len(fibers), MAX_SPECTRA)
 
