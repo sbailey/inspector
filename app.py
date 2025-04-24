@@ -295,6 +295,7 @@ def tiles_targets(specprod, targetids):
 
     return render_table(t, format_type)
 
+@app.route("/<string:specprod>/targets/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/targets/tiles/<int:tileid>/<string:fibers>")
 @conditional_auth
 def plot_tiles_targets_fibers(specprod, tileid, fibers):
@@ -506,6 +507,7 @@ def plot_tiles_spectra_targetids(specprod, targetids):
     else:
         return f'Unrecognized format {format_type}', 400
 
+@app.route("/<string:specprod>/spectra/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/spectra/tiles/<int:tileid>/<string:fibers>")
 @conditional_auth
 def plot_tiles_spectra_fibers(specprod, tileid, fibers):
