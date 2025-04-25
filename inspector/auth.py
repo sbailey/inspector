@@ -13,14 +13,6 @@ import os, sys
 from flask import Flask, request, Response
 from functools import wraps
 
-#- Get user/pass from environment upon import to crash immediately if not set
-try:
-    _desi_username = os.environ['DESI_COLLAB_USERNAME']
-    _desi_password = os.environ['DESI_COLLAB_PASSWORD']
-except KeyError:
-    print('ERROR: please set $DESI_COLLAB_USERNAME and $DESI_COLLAB_PASSWORD')
-    sys.exit(1)
-
 # Define a decorator for requiring HTTP Basic Auth
 def requires_auth(f):
     @wraps(f)
@@ -33,8 +25,7 @@ def requires_auth(f):
 
 # Function to check if username and password are correct
 def check_auth(username, password):
-    global _desi_username, _desi_password
-    return (username == _desi_username) and (password == _desi_password)
+    return (username == os.environ['DESI_COLLAB_USERNAME']) and (password == os.environ['DESI_COLLAB_PASSWORD'])
 
 # Function to send a 401 response that enables basic auth
 def authenticate():
