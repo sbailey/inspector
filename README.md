@@ -17,7 +17,8 @@ Spring 2025
 podman build -t desi-inspector .
 podman rm inspector
 podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector desi-inspector
+podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector -e DESI_COLLAB_USERNAME=... -e DESI_COLLAB_PASSWORD=... desi-inspector
 podman logs inspector
+
+http://0.0.0.0:5001
 ```
-
-

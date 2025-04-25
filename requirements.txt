@@ -1,0 +1,12 @@
+numpy<2
+scipy
+astropy<7
+matplotlib
+numba
+fitsio
+h5py
+healpy
+requests
+flask
+bokeh<3
+gunicorn
