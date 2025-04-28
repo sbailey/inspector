@@ -13,6 +13,7 @@ import fitsio
 from desispec import inventory
 from desispec.io import read_spectra_parallel, write_spectra, specprod_root
 from desispec.io import findfile
+from desispec.io.meta import get_lastnight
 
 from prospect.viewer import plotspectra
 
@@ -318,10 +319,11 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
 
     fibers = parse_fibers(fibers)
 
-    #- Find LASTNIGHT for this tile;
-    #- presumably we won't be running this code past the year 2100
-    nightdirs = sorted(glob.glob(specprod_root(specprod)+f'/tiles/cumulative/{tileid}/20??????'))
-    lastnight = int(os.path.basename(nightdirs[-1]))
+    #- Find LASTNIGHT for this tile
+    try:
+        lastnight = get_lastnight(tileid, specprod=specprod)
+    except ValueError:
+        return f'Tile {tileid} not found in {specprod} production', 404
 
     #- read fibermaps to find the TARGETIDs for these fibers
     fiber2targetid = dict()
@@ -532,9 +534,11 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
     if len(fibers) > MAX_SPECTRA:
         return MAX_SPECTRA_ERROR_MESSAGE.format(len(fibers), MAX_SPECTRA)
 
-    #- presumably we won't be running this code past the year 2100
-    nightdirs = sorted(glob.glob(specprod_root(specprod)+f'/tiles/cumulative/{tileid}/20??????'))
-    lastnight = int(os.path.basename(nightdirs[-1]))
+    #- Find LASTNIGHT for this tile
+    try:
+        lastnight = get_lastnight(tileid, specprod=specprod)
+    except ValueError:
+        return f'Tile {tileid} not found in {specprod} production', 404
 
     targetcat = Table()
     targetcat['FIBER'] = fibers
