@@ -4,7 +4,7 @@ FROM python:3.10-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Update the package list and install git, svn, and fitsio dependencies
+# Update the package list and install non-python tools and dependencies
 RUN apt-get update && \
     apt-get install -y make git subversion gcc libbz2-dev zlib1g-dev && \
     rm -rf /var/lib/apt/lists/*
@@ -12,7 +12,7 @@ RUN apt-get update && \
 # Copy the current directory contents into the container at /app
 COPY . /app
 
-# Install any needed packages specified in requirements.txt
+# Install python dependencies; final chmod is needed to be able to run a non-root
 RUN pip install --no-cache-dir -r requirements.txt                  &&\
     pip install git+https://github.com/desihub/desiutil@3.5.0       &&\
     pip install git+https://github.com/desihub/desitarget@2.9.0     &&\
