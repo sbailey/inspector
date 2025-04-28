@@ -16,7 +16,7 @@ from desispec.io import findfile
 
 from prospect.viewer import plotspectra
 
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, Response
 
 from inspector.auth import conditional_auth
 
@@ -93,6 +93,17 @@ def license():
 def about():
     root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
     return render_template('about.html', root_url=root_url)
+
+@app.route("/robots.txt")
+def robots():
+    return Response("""User-agent: *
+Disallow: /*
+Allow: /
+Allow: /examples
+Allow: /search
+Allow: /license
+Allow: /about
+""", mimetype="text/plain")
 
 def _current_url_as_format(fmt):
     """
