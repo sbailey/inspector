@@ -19,7 +19,8 @@ RUN pip install --no-cache-dir -r requirements.txt                  &&\
     pip install git+https://github.com/desihub/prospect@main        &&\
     pip install git+https://github.com/desihub/redrock@0.20.4       &&\
     install_redrock_templates                                       &&\
-    pip install git+https://github.com/desihub/desispec@inventory
+    pip install git+https://github.com/desihub/desispec@inventory   &&\
+    chmod -R o+rX /app
 
 # Make port 5001 available to the world outside this container
 EXPOSE 5001
