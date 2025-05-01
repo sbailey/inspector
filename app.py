@@ -14,6 +14,7 @@ from desispec import inventory
 from desispec.io import read_spectra_parallel, write_spectra, specprod_root
 from desispec.io import findfile
 from desispec.io.meta import get_lastnight
+from desispec.io.redrock import read_redrock_targetcat
 
 from prospect.viewer import plotspectra
 
@@ -121,6 +122,11 @@ def render_table_html(table, header, description=''):
     """
     TODO: document
     """
+    #- limit precision for display
+    for col in table.colnames:
+        if table[col].dtype.kind == 'f':
+            table[col].format = '{:.4f}'
+
     root_url = request.root_url.rstrip('/')  #- App URL without subpages or query options
     with io.StringIO() as buffer:
         table.write(buffer, format='ascii.html')
@@ -258,6 +264,10 @@ def healpix_radec_targets(specprod, radec):
         return MAX_RADIUS_ERROR_MESSAGE
 
     t = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
+    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        t[col] = zcat[col]
+
     return render_table(t, format_type)
 
 
@@ -273,6 +283,10 @@ def healpix_targets(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     t = inventory.target_healpix(targetids=targetids, specprod=specprod)
+    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        t[col] = zcat[col]
+
     return render_table(t, format_type)
 
 
@@ -290,6 +304,10 @@ def tiles_radec_targets(specprod, radec):
         return MAX_RADIUS_ERROR_MESSAGE
 
     t = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
+    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        t[col] = zcat[col]
+
     return render_table(t, format_type)
 
 
@@ -304,6 +322,9 @@ def tiles_targets(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     t = inventory.target_tiles(targetids=targetids, specprod=specprod)
+    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        t[col] = zcat[col]
 
     return render_table(t, format_type)
 
@@ -341,6 +362,10 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
     targetcat['TILEID'] = tileid
     targetcat['LASTNIGHT'] = lastnight
     targetcat['FIBER'] = fibers
+
+    zcat = read_redrock_targetcat(targetcat, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        targetcat[col] = zcat[col]
 
     return render_table(targetcat, format_type)
 
