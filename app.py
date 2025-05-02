@@ -19,6 +19,7 @@ from desispec.io.redrock import read_redrock_targetcat
 from prospect.viewer import plotspectra
 
 from flask import Flask, request, jsonify, render_template, make_response, Response
+import werkzeug.datastructures.structures
 
 from inspector.auth import conditional_auth
 
@@ -65,6 +66,11 @@ def parse_fibers(fibers_string):
 
     return fibers
 
+
+@app.route("/testargs")
+def test_filter():
+    print(type(request.args))
+    return str(request.args.to_dict(flat=False))
 
 @app.route("/<string:specprod>/test")
 @conditional_auth
@@ -220,6 +226,7 @@ def _format_radec(ra,dec):
     return f'({rastr},{decstr})'
 
 def render_table(table, format_type):
+
     if format_type == 'html':
         specprod = table.meta['SPECPROD']
         header = f'DESI {specprod} production'
@@ -246,6 +253,61 @@ def render_table(table, format_type):
     else:
         return f"Unsupported format='{format_type}'", 400
 
+def filter_table(table, args=None):
+    """
+    Filter a Table based upon URL args dict
+
+    TODO: expand explanation, args comes from request.args.to_dict(flat=False)
+    """
+    if args is None:
+        args = request.args.to_dict(flat=False)
+    elif isinstance(args, werkzeug.datastructures.structures.MultiDict):
+        args = args.to_dict(flat=False)
+
+    keep = np.ones(len(table), dtype=bool)
+    for column, filter_list in args.items():
+        if column not in table.colnames:
+            continue
+        for filt in filter_list:
+            if ':' in filt:
+                operator, value = filt.split(':')
+            else:
+                operator = 'eq'
+                value = filt
+
+            value = np.array(value, dtype=table[column].dtype)
+            print(f'Filter {column} {operator} {value}')
+
+            if operator == 'eq':
+                keep &= (table[column] == value)
+            elif operator == 'lt':
+                keep &= (table[column] < value)
+            elif operator == 'le':
+                keep &= (table[column] <= value)
+            elif operator == 'gt':
+                keep &= (table[column] > value)
+            elif operator == 'ge':
+                keep &= (table[column] >= value)
+            else:
+                #- TODO: handle error message with error message to user
+                print(f'ERROR: unrecognized operator {operator}')
+
+    return table[keep]
+
+def add_zcat_columns(targetcat, specprod):
+    """
+    Return copy of targetcat with zcat columns added
+
+    Adds TARGET_RA, TARGET_DEC, SPECTYPE, Z, ZWARN
+    """
+    t = targetcat.copy(copy_data=False)
+    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
+    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
+        t[col] = zcat[col]
+
+    return t
+
+
 #-------------------------------------------------------------------------
 #- Inventory of targets
 
@@ -264,9 +326,7 @@ def healpix_radec_targets(specprod, radec):
         return MAX_RADIUS_ERROR_MESSAGE
 
     t = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
-    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        t[col] = zcat[col]
+    t = filter_table(add_zcat_columns(t, specprod))
 
     return render_table(t, format_type)
 
@@ -283,9 +343,7 @@ def healpix_targets(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     t = inventory.target_healpix(targetids=targetids, specprod=specprod)
-    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        t[col] = zcat[col]
+    t = filter_table(add_zcat_columns(t, specprod))
 
     return render_table(t, format_type)
 
@@ -304,9 +362,7 @@ def tiles_radec_targets(specprod, radec):
         return MAX_RADIUS_ERROR_MESSAGE
 
     t = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
-    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        t[col] = zcat[col]
+    t = filter_table(add_zcat_columns(t, specprod))
 
     return render_table(t, format_type)
 
@@ -322,9 +378,7 @@ def tiles_targets(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     t = inventory.target_tiles(targetids=targetids, specprod=specprod)
-    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        t[col] = zcat[col]
+    t = filter_table(add_zcat_columns(t, specprod))
 
     return render_table(t, format_type)
 
@@ -363,9 +417,7 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['FIBER'] = fibers
 
-    zcat = read_redrock_targetcat(targetcat, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        targetcat[col] = zcat[col]
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     return render_table(targetcat, format_type)
 
@@ -438,6 +490,7 @@ def plot_healpix_spectra_radec(specprod, radec):
 
     ra,dec,radius = inventory.parse_radec_string(radec)
     targetcat = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
@@ -469,6 +522,7 @@ def plot_healpix_spectra_targetids(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_healpix(targetids=targetids, specprod=specprod)
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
@@ -498,6 +552,7 @@ def plot_tiles_spectra_radec(specprod, radec):
 
     ra,dec,radius = inventory.parse_radec_string(radec)
     targetcat = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
@@ -528,6 +583,7 @@ def plot_tiles_spectra_targetids(specprod, targetids):
 
     targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_tiles(targetids=targetids, specprod=specprod)
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
@@ -570,6 +626,8 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['TILEID'] = tileid
 
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
+
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
@@ -582,7 +640,7 @@ def plot_tiles_spectra_fibers(specprod, tileid, fibers):
         return f'Unrecognized format {format_type}', 400
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5500)
 
 
 

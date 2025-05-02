@@ -86,7 +86,21 @@ Note: Fiber range 0-5 is 0,1,2,3,4,5 (inclusive of 5), while 0:5 is Python-like 
 Note: All of the same <code>?format=html|fits|json|csv|ascii</code> options work for the TILE/FIBERs and TARGETID-based views as well.
 </p>
 
-<p>View the spectra for those TARGETIDs:</p>
+<p>Tile 150 fibers 0:1000 filtered to SPECTYPE=QSO with Z>2.1</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/dr1/targets/tiles/150/0:1000?SPECTYPE=QSO&Z=gt:2.1">
+         {{ root_url }}/dr1/targets/tiles/150/0:1000<b>&SPECTYPE=QSO&Z=gt:2.1</b></a>
+</p>
+
+<p>Multiple filters can be applied to the same column, e.g. good galaxies with 0.2 &lt; z &lt; 0.5 :</p>
+<p class="indented-paragraph">
+<a href="{{ root_url }}/dr1/targets/tiles/150/0:1000?SPECTYPE=GALAXY&ZWARN=0&Z=gt:0.2&Z=lt:0.5">
+         {{ root_url }}/dr1/targets/tiles/150/0:1000<b>&SPECTYPE=GALAXY&ZWARN=0&Z=gt:0.2&Z=lt:0.5</b></a>
+</p>
+
+
+
+<p>View the spectra for some TARGETIDs:</p>
 <p class="indented-paragraph">
 <a href="{{ root_url }}/dr1/spectra/39627908959964170,39627908959964322">{{ root_url }}/dr1/spectra/39627908959964170,39627908959964322</a><br>
 </p>
