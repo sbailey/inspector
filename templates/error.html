@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}DESI Data Inspector{% endblock %}
+
+{% block content %}
+
+<h2>Error {{ code }} - {{ summary }}</h2>
+
+<p>
+{{ message }}
+</p>
+
+<p>
+See the <a href="examples/">Examples</a> page for further information about valid URLs.
+<p>
+
+{% endblock %}

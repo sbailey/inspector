@@ -27,7 +27,7 @@ app = Flask(__name__)
 app.url_map.strict_slashes = False
 
 MAX_RADIUS=1800  # 0.5 deg
-MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius &le; {MAX_RADIUS} arcsec'
+MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius < {MAX_RADIUS} arcsec'
 
 MAX_SPECTRA=1000
 MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
@@ -307,6 +307,17 @@ def add_zcat_columns(targetcat, specprod):
 
     return t
 
+def parse_radec_string(radec):
+    try:
+        ra,dec,radius = inventory.parse_radec_string(radec)
+    except ValueError as err:
+        message = f'Could not parse "{radec}" as RA,DEC,RADIUS: {str(err)}'
+        raise ValueError(message)
+
+    if radius > MAX_RADIUS:
+        raise ValueError(MAX_RADIUS_ERROR_MESSAGE)
+
+    return ra,dec,radius
 
 #-------------------------------------------------------------------------
 #- Inventory of targets
@@ -319,11 +330,12 @@ def healpix_radec_targets(specprod, radec):
     try:
         format_type = get_table_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    ra,dec,radius = inventory.parse_radec_string(radec)
-    if radius > MAX_RADIUS:
-        return MAX_RADIUS_ERROR_MESSAGE
+    try:
+        ra,dec,radius = parse_radec_string(radec)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     t = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
     t = filter_table(add_zcat_columns(t, specprod))
@@ -338,10 +350,10 @@ def healpix_targets(specprod, targetids):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
+        targetids = list(map(int, targetids.split(',')))
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    targetids = list(map(int, targetids.split(',')))
     t = inventory.target_healpix(targetids=targetids, specprod=specprod)
     t = filter_table(add_zcat_columns(t, specprod))
 
@@ -355,11 +367,12 @@ def tiles_radec_targets(specprod, radec):
     try:
         format_type = get_table_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    ra,dec,radius = inventory.parse_radec_string(radec)
-    if radius > MAX_RADIUS:
-        return MAX_RADIUS_ERROR_MESSAGE
+    try:
+        ra,dec,radius = parse_radec_string(radec)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     t = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
     t = filter_table(add_zcat_columns(t, specprod))
@@ -373,10 +386,10 @@ def tiles_targets(specprod, targetids):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
+        targetids = list(map(int, targetids.split(',')))
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    targetids = list(map(int, targetids.split(',')))
     t = inventory.target_tiles(targetids=targetids, specprod=specprod)
     t = filter_table(add_zcat_columns(t, specprod))
 
@@ -390,7 +403,7 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
     try:
         format_type = get_table_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     fibers = parse_fibers(fibers)
 
@@ -486,9 +499,13 @@ def plot_healpix_spectra_radec(specprod, radec):
     try:
         format_type = get_spectra_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    ra,dec,radius = inventory.parse_radec_string(radec)
+    try:
+        ra,dec,radius = parse_radec_string(radec)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+
     targetcat = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
     targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
@@ -517,10 +534,10 @@ def plot_healpix_spectra_targetids(specprod, targetids):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
+        targetids = list(map(int, targetids.split(',')))
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_healpix(targetids=targetids, specprod=specprod)
     targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
@@ -548,9 +565,13 @@ def plot_tiles_spectra_radec(specprod, radec):
     try:
         format_type = get_spectra_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    ra,dec,radius = inventory.parse_radec_string(radec)
+    try:
+        ra,dec,radius = parse_radec_string(radec)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+
     targetcat = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
     targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
@@ -578,10 +599,10 @@ def plot_tiles_spectra_targetids(specprod, targetids):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
+        targetids = list(map(int, targetids.split(',')))
     except ValueError as err:
         return str(err), 400
 
-    targetids = list(map(int, targetids.split(',')))
     targetcat = inventory.target_tiles(targetids=targetids, specprod=specprod)
     targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
