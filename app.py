@@ -475,8 +475,17 @@ def render_spectra_plot(spectra):
     download_url = _current_url_as_format('fits')
     table_url = _current_url_as_format('html').replace('/spectra/', '/targets/')
 
-    html_content = html_content.replace('</body>',
-                                        f'<hr/><a href="{download_url}">Download spectra</a>; <a href="{table_url}">View target table</a>\n</body>')
+    footer = f"""
+<span style="font-family: Helvetica, Arial, sans-serif; font-size: 14px;">
+<hr/>
+DESI Data Inspector:
+    <a href='/'>Home</a>
+    <a href="{download_url}">Download spectra</a>
+    <a href="{table_url}">View target table</a>
+</span>
+"""
+
+    html_content = html_content.replace('</body>', f'{footer}</body>')
 
     return html_content, 200, {'Content-Type': 'text/html'}
 
