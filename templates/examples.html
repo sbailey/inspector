@@ -38,6 +38,14 @@ targets = Table.read("{{ root_url }}/dr1/targets/radec/210,5,30?format=csv", for
 <a href="{{ root_url }}/dr1/spectra/radec/210,5,30">{{ root_url }}/dr1/<b>spectra</b>/radec/210,5,30</a><br>
 </p>
 
+<p>Include the noise model in the interactive spectra plot:</p>
+<p class="indented-paragraph">
+<a href="/dr1/spectra/radec/210,5,30?plotnoise=1">{{ root_url }}/dr1/spectra/radec/210,5,30?plotnoise=1</a><br>
+<br>
+Note: <code>?plotnoise=true</code> and <code>?plotnoise</code> (without a =value) will also plot the noise model.
+<code>plotnoise=false</code> and <code>plotnoise=0</code> act like the default, not plotting the noise model.
+</p>
+
 <p>Download those spectra as a FITS file, using the same format as DESI coadded spectra:</p>
 <p class="indented-paragraph">
 <a href="{{ root_url }}/dr1/spectra/radec/210,5,30?format=fits">{{ root_url }}/dr1/spectra/radec/210,5,30<b>?format=fits</b></a><br>

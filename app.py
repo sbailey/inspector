@@ -445,6 +445,11 @@ def render_spectra_plot(spectra):
         else:
             title = 'DESI spectra'
 
+        if 'plotnoise' in request.args and request.args['plotnoise'].lower() in ('', '1', 'true'):
+            with_noise = True
+        else:
+            with_noise = False
+
         prospectfile = f'{tmpdir}/prospect.html'
         print(f'Writing prospect spectra to {prospectfile}')
 
@@ -459,7 +464,9 @@ def render_spectra_plot(spectra):
                 with_full_2ndfit=False,
                 with_thumb_tab=False,
                 with_coaddcam=False,
+                with_noise=with_noise,
                 num_approx_fits=0,
+                top_metadata=['TARGETID', 'TILEID', 'FIBER']
             )
 
         with open(prospectfile, 'r') as fp:
