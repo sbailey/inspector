@@ -288,6 +288,8 @@ def filter_table(table, args=None):
                 keep &= (table[column] > value)
             elif operator == 'ge':
                 keep &= (table[column] >= value)
+            elif operator == 'ne':
+                keep &= (table[column] != value)
             else:
                 #- TODO: handle error message with error message to user
                 print(f'ERROR: unrecognized operator {operator}')
