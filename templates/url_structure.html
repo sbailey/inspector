@@ -1,11 +1,11 @@
-<pre style="font-size: 12px;">
-<span style="color:DarkRed">RELEASE</span>/<span style="color:DarkCyan">targets|spectra</span>/<span style="color:DarkOrange">[tiles|healpix]</span>/<span style="color:DarkGreen">TARGETIDS</span>|<span style="color:CornflowerBlue">radec/RA,DEC,RADIUS</span>|<span style="color:LightSeaGreen">TILEID/FIBERS</span>
+<pre style="font-size: 14px;">
+<span style="color:DarkRed">RELEASE</span>/<span style="color:DarkCyan">targets|spectra</span>/<span style="color:DarkOrange">[tiles|healpix]</span>/<span style="color:DarkGreen">TARGETIDS</span>|<span style="color:CornflowerBlue">radec/RA,DEC,RADIUS</span>|<span style="color:LightSeaGreen">TILEID/FIBERS</span>[?options]
 </pre>
 where <code>lowercase</code> pieces are literal text, and <code>UPPERCASE</code> pieces are parameters to enter:
 <ul>
     <li><code style="color:DarkRed">RELEASE</code> is the Data Release or Spectrosopic Production name, e.g. edr, dr1, fuji, iron.</li>
     <li><code style="color:DarkCyan">targets</code> or <code style="color:DarkCyan">spectra</code> selects between getting a table of targets or their spectra.</li>
-    <li>Optional <code style="color:DarkOrange">tiles</code> or <code style="color:DarkOrange">healpix</code> selects between tile-based or cross-tile healpix-based data (default healpix).</li>
+    <li>Optional <code style="color:DarkOrange">tiles</code> or <code style="color:DarkOrange">healpix</code> selects between tile-based or cross-tile healpix-based data (healpix default for radec and TARGETIDS search; tiles default for TILEID/FIBERS search).</li>
     <li>3 ways to select which targets/spectra to display</li>
     <ul>
         <li><code style="color:DarkGreen">TARGETIDS</code> is a comma separated list of integer <code>TARGETIDS</code>.</li>
