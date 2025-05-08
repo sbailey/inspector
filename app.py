@@ -324,83 +324,65 @@ def parse_radec_string(radec):
 #-------------------------------------------------------------------------
 #- Inventory of targets
 
-@app.route("/<string:specprod>/targets/radec/<string:radec>")
-@app.route("/<string:specprod>/targets/healpix/radec/<string:radec>")
-@conditional_auth
-def healpix_radec_targets(specprod, radec):
+def load_targets_table(specprod, specgroup, radec=None, targetids=None):
+    """
+    required: specprod, specgroup; plus radec OR targetids (but not both)
+    """
     specprod = standardize_specprod(specprod)
+
+    if radec is not None:
+        radec = parse_radec_string(radec)
+    elif targetids is not None:
+        targetids = list(map(int, targetids.split(',')))
+    else:
+        raise ValueError('must specify radec or targetids')
+
+    if specgroup == 'healpix':
+        t = inventory.target_healpix(radec=radec, targetids=targetids, specprod=specprod)
+    elif specgroup == 'tiles':
+        t = inventory.target_tiles(radec=radec, targetids=targetids, specprod=specprod)
+
+    t = filter_table(add_zcat_columns(t, specprod))
+    return t
+
+def load_targets(specprod, specgroup, radec=None, targetids=None):
+    """
+    required: specprod, specgroup; plus radec OR targetids (but not both)
+    """
     try:
         format_type = get_table_format()
+        t = load_targets_table(specprod, specgroup, radec=radec, targetids=targetids)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    try:
-        ra,dec,radius = parse_radec_string(radec)
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    t = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
-    t = filter_table(add_zcat_columns(t, specprod))
 
     return render_table(t, format_type)
 
+@app.route("/<string:specprod>/targets/radec/<string:radec>")
+@app.route("/<string:specprod>/targets/healpix/radec/<string:radec>")
+@conditional_auth
+def target_healpix_radec(specprod, radec):
+    return load_targets(specprod, specgroup='healpix', radec=radec)
 
 @app.route("/<string:specprod>/targets/<string:targetids>")
 @app.route("/<string:specprod>/targets/healpix/<string:targetids>")
 @conditional_auth
-def healpix_targets(specprod, targetids):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_table_format()
-        targetids = list(map(int, targetids.split(',')))
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    t = inventory.target_healpix(targetids=targetids, specprod=specprod)
-    t = filter_table(add_zcat_columns(t, specprod))
-
-    return render_table(t, format_type)
-
+def targets_healpix_targetids(specprod, targetids):
+    return load_targets(specprod, specgroup='healpix', targetids=targetids)
 
 @app.route("/<string:specprod>/targets/tiles/radec/<string:radec>")
 @conditional_auth
-def tiles_radec_targets(specprod, radec):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_table_format()
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    try:
-        ra,dec,radius = parse_radec_string(radec)
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    t = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
-    t = filter_table(add_zcat_columns(t, specprod))
-
-    return render_table(t, format_type)
-
+def targets_tiles_radec(specprod, radec):
+    return load_targets(specprod, specgroup='tiles', radec=radec)
 
 @app.route("/<string:specprod>/targets/tiles/<string:targetids>")
 @conditional_auth
-def tiles_targets(specprod, targetids):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_table_format()
-        targetids = list(map(int, targetids.split(',')))
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    t = inventory.target_tiles(targetids=targetids, specprod=specprod)
-    t = filter_table(add_zcat_columns(t, specprod))
-
-    return render_table(t, format_type)
+def targets_tiles_targetids(specprod, targetids):
+    return load_targets(specprod, specgroup='tiles', targetids=targetids)
 
 @app.route("/<string:specprod>/targets/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/targets/tiles/<int:tileid>/<string:fibers>")
 @conditional_auth
-def plot_tiles_targets_fibers(specprod, tileid, fibers):
+def targets_tiles_fibers(specprod, tileid, fibers):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
@@ -512,27 +494,25 @@ def render_spectra_fits(spectra):
 
     return response
 
-@app.route("/<string:specprod>/spectra/radec/<string:radec>")
-@app.route("/<string:specprod>/spectra/healpix/radec/<string:radec>")
-@conditional_auth
-def plot_healpix_spectra_radec(specprod, radec):
-    specprod = standardize_specprod(specprod)
+def load_spectra(specprod, specgroup, radec=None, targetids=None):
+    """
+    Required: specprod, specgroup; and radec OR targetids (but not both)
+    """
     try:
+        specprod = standardize_specprod(specprod)
         format_type = get_spectra_format()
+        targetcat = load_targets_table(specprod, specgroup=specgroup, radec=radec, targetids=targetids)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    try:
-        ra,dec,radius = parse_radec_string(radec)
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    targetcat = inventory.target_healpix(radec=(ra,dec,radius), specprod=specprod)
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
-        return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
+        if radec is not None:
+            ra,dec,radius = parse_radec_string(radec)
+            return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
+        else:
+            return f'No targets found with TARGETIDs={targetids}'
+
     elif num_spectra > MAX_SPECTRA:
         return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
 
@@ -540,113 +520,43 @@ def plot_healpix_spectra_radec(specprod, radec):
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
-        spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
+        if radec is not None:
+            ra,dec,radius = parse_radec_string(radec)
+            spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
+
         return render_spectra_plot(spectra)
     elif format_type == 'fits':
         return render_spectra_fits(spectra)
     else:
         return f'Unrecognized format {format_type}', 400
 
+
+@app.route("/<string:specprod>/spectra/radec/<string:radec>")
+@app.route("/<string:specprod>/spectra/healpix/radec/<string:radec>")
+@conditional_auth
+def spectra_healpix_radec(specprod, radec):
+    return load_spectra(specprod, specgroup='healpix', radec=radec)
 
 @app.route("/<string:specprod>/spectra/<string:targetids>")
 @app.route("/<string:specprod>/spectra/healpix/<string:targetids>")
 @conditional_auth
-def plot_healpix_spectra_targetids(specprod, targetids):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_spectra_format()
-        targetids = list(map(int, targetids.split(',')))
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    targetcat = inventory.target_healpix(targetids=targetids, specprod=specprod)
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
-
-    num_spectra = len(targetcat)
-    if num_spectra == 0:
-        return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
-    elif num_spectra > MAX_SPECTRA:
-        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
-
-    print(f'Reading {num_spectra} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
-
-    if format_type == 'html':
-        return render_spectra_plot(spectra)
-    elif format_type == 'fits':
-        return render_spectra_fits(spectra)
-    else:
-        return f'Unrecognized format {format_type}', 400
-
+def spectra_healpix_targetids(specprod, targetids):
+    return load_spectra(specprod, specgroup='healpix', targetids=targetids)
 
 @app.route("/<string:specprod>/spectra/tiles/radec/<string:radec>")
 @conditional_auth
-def plot_tiles_spectra_radec(specprod, radec):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_spectra_format()
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    try:
-        ra,dec,radius = parse_radec_string(radec)
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
-
-    targetcat = inventory.target_tiles(radec=(ra,dec,radius), specprod=specprod)
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
-
-    num_spectra = len(targetcat)
-    if num_spectra == 0:
-        return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
-    elif num_spectra > MAX_SPECTRA:
-        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
-
-    print(f'Reading {num_spectra} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
-
-    if format_type == 'html':
-        spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
-        return render_spectra_plot(spectra)
-    elif format_type == 'fits':
-        return render_spectra_fits(spectra)
-    else:
-        return f'Unrecognized format {format_type}', 400
-
+def spectra_tiles_radec(specprod, radec):
+    return load_spectra(specprod, specgroup='tiles', radec=radec)
 
 @app.route("/<string:specprod>/spectra/tiles/<string:targetids>")
 @conditional_auth
-def plot_tiles_spectra_targetids(specprod, targetids):
-    specprod = standardize_specprod(specprod)
-    try:
-        format_type = get_spectra_format()
-        targetids = list(map(int, targetids.split(',')))
-    except ValueError as err:
-        return str(err), 400
-
-    targetcat = inventory.target_tiles(targetids=targetids, specprod=specprod)
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
-
-    num_spectra = len(targetcat)
-    if num_spectra == 0:
-        return f'No targets found with TARGETIDs={targetids}'
-    elif num_spectra > MAX_SPECTRA:
-        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
-
-    print(f'Reading {num_spectra} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
-
-    if format_type == 'html':
-        return render_spectra_plot(spectra)
-    elif format_type == 'fits':
-        return render_spectra_fits(spectra)
-    else:
-        return f'Unrecognized format {format_type}', 400
+def spectra_tiles_targetids(specprod, targetids):
+    return load_spectra(specprod, specgroup='tiles', targetids=targetids)
 
 @app.route("/<string:specprod>/spectra/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/spectra/tiles/<int:tileid>/<string:fibers>")
 @conditional_auth
-def plot_tiles_spectra_fibers(specprod, tileid, fibers):
+def spectra_tiles_fibers(specprod, tileid, fibers):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
