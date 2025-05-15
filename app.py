@@ -324,7 +324,7 @@ def parse_radec_string(radec):
 #-------------------------------------------------------------------------
 #- Inventory of targets
 
-def load_targets_table(specprod, specgroup, radec=None, targetids=None):
+def load_targets(specprod, specgroup, radec=None, targetids=None):
     """
     required: specprod, specgroup; plus radec OR targetids (but not both)
     """
@@ -345,13 +345,13 @@ def load_targets_table(specprod, specgroup, radec=None, targetids=None):
     t = filter_table(add_zcat_columns(t, specprod))
     return t
 
-def load_targets(specprod, specgroup, radec=None, targetids=None):
+def render_targets(specprod, specgroup, radec=None, targetids=None):
     """
     required: specprod, specgroup; plus radec OR targetids (but not both)
     """
     try:
         format_type = get_table_format()
-        t = load_targets_table(specprod, specgroup, radec=radec, targetids=targetids)
+        t = load_targets(specprod, specgroup, radec=radec, targetids=targetids)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
@@ -361,23 +361,23 @@ def load_targets(specprod, specgroup, radec=None, targetids=None):
 @app.route("/<string:specprod>/targets/healpix/radec/<string:radec>")
 @conditional_auth
 def target_healpix_radec(specprod, radec):
-    return load_targets(specprod, specgroup='healpix', radec=radec)
+    return render_targets(specprod, specgroup='healpix', radec=radec)
 
 @app.route("/<string:specprod>/targets/<string:targetids>")
 @app.route("/<string:specprod>/targets/healpix/<string:targetids>")
 @conditional_auth
 def targets_healpix_targetids(specprod, targetids):
-    return load_targets(specprod, specgroup='healpix', targetids=targetids)
+    return render_targets(specprod, specgroup='healpix', targetids=targetids)
 
 @app.route("/<string:specprod>/targets/tiles/radec/<string:radec>")
 @conditional_auth
 def targets_tiles_radec(specprod, radec):
-    return load_targets(specprod, specgroup='tiles', radec=radec)
+    return render_targets(specprod, specgroup='tiles', radec=radec)
 
 @app.route("/<string:specprod>/targets/tiles/<string:targetids>")
 @conditional_auth
 def targets_tiles_targetids(specprod, targetids):
-    return load_targets(specprod, specgroup='tiles', targetids=targetids)
+    return render_targets(specprod, specgroup='tiles', targetids=targetids)
 
 @app.route("/<string:specprod>/targets/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/targets/tiles/<int:tileid>/<string:fibers>")
@@ -390,15 +390,16 @@ def targets_tiles_fibers(specprod, tileid, fibers):
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    if np.min(fibers) < 0 or np.max(fibers) > 4999:
-        msg = 'Fibers must be in the range 0-4999'
+    if np.min(fibers)<0 or np.max(fibers)>=5000:
+        msg = 'Fibers must be in 0 <= FIBER < 5000'
         return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     #- Find LASTNIGHT for this tile
     try:
         lastnight = get_lastnight(tileid, specprod=specprod)
-    except ValueError:
-        return f'Tile {tileid} not found in {specprod} production', 404
+    except ValueError as err:
+        msg = f'Tile {tileid} not found in {specprod} production'
+        return render_template("error.html", code=404, summary='Not Found', message=str(err)), 404
 
     #- read fibermaps to find the TARGETIDs for these fibers
     fiber2targetid = dict()
@@ -494,30 +495,41 @@ def render_spectra_fits(spectra):
 
     return response
 
-def load_spectra(specprod, specgroup, radec=None, targetids=None):
+def load_spectra(specprod, specgroup, radec=None, targetids=None, maxspectra=MAX_SPECTRA):
     """
     Required: specprod, specgroup; and radec OR targetids (but not both)
+
+    TODO: separate loading spectra from flask-specific rendering
     """
-    try:
-        specprod = standardize_specprod(specprod)
-        format_type = get_spectra_format()
-        targetcat = load_targets_table(specprod, specgroup=specgroup, radec=radec, targetids=targetids)
-    except ValueError as err:
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+    specprod = standardize_specprod(specprod)
+    targetcat = load_targets(specprod, specgroup=specgroup, radec=radec, targetids=targetids)
 
     num_spectra = len(targetcat)
     if num_spectra == 0:
-        if radec is not None:
-            ra,dec,radius = parse_radec_string(radec)
-            return f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})', 404
-        else:
-            return f'No targets found with TARGETIDs={targetids}'
-
+        return None
     elif num_spectra > MAX_SPECTRA:
-        return MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, MAX_SPECTRA)
+        raise ValueError(MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, maxspectra))
 
     print(f'Reading {num_spectra} spectra')
     spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
+    return spectra
+
+def render_spectra(specprod, specgroup, radec=None, targetids=None):
+    try:
+        format_type = get_spectra_format()
+        spectra = load_spectra(specprod, specgroup=specgroup, radec=radec, targetids=targetids)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+
+    #- Handle case of no spectra found
+    if spectra is None:
+        if radec is not None:
+            ra,dec,radius = parse_radec_string(radec)
+            msg = f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})'
+        else:
+            msg = f'No targets found with TARGETIDs={targetids}'
+
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     if format_type == 'html':
         if radec is not None:
@@ -528,30 +540,31 @@ def load_spectra(specprod, specgroup, radec=None, targetids=None):
     elif format_type == 'fits':
         return render_spectra_fits(spectra)
     else:
-        return f'Unrecognized format {format_type}', 400
+        msg = f'Unrecognized format {format_type}'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
 
 @app.route("/<string:specprod>/spectra/radec/<string:radec>")
 @app.route("/<string:specprod>/spectra/healpix/radec/<string:radec>")
 @conditional_auth
 def spectra_healpix_radec(specprod, radec):
-    return load_spectra(specprod, specgroup='healpix', radec=radec)
+    return render_spectra(specprod, specgroup='healpix', radec=radec)
 
 @app.route("/<string:specprod>/spectra/<string:targetids>")
 @app.route("/<string:specprod>/spectra/healpix/<string:targetids>")
 @conditional_auth
 def spectra_healpix_targetids(specprod, targetids):
-    return load_spectra(specprod, specgroup='healpix', targetids=targetids)
+    return render_spectra(specprod, specgroup='healpix', targetids=targetids)
 
 @app.route("/<string:specprod>/spectra/tiles/radec/<string:radec>")
 @conditional_auth
 def spectra_tiles_radec(specprod, radec):
-    return load_spectra(specprod, specgroup='tiles', radec=radec)
+    return render_spectra(specprod, specgroup='tiles', radec=radec)
 
 @app.route("/<string:specprod>/spectra/tiles/<string:targetids>")
 @conditional_auth
 def spectra_tiles_targetids(specprod, targetids):
-    return load_spectra(specprod, specgroup='tiles', targetids=targetids)
+    return render_spectra(specprod, specgroup='tiles', targetids=targetids)
 
 @app.route("/<string:specprod>/spectra/<int:tileid>/<string:fibers>")
 @app.route("/<string:specprod>/spectra/tiles/<int:tileid>/<string:fibers>")
