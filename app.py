@@ -311,7 +311,7 @@ def add_zcat_columns(targetcat, specprod):
 
 def parse_radec_string(radec):
     try:
-        ra,dec,radius = inventory.parse_radec_string(radec)
+        ra,dec,radius = inventory.parse_radec(radec)
     except ValueError as err:
         message = f'Could not parse "{radec}" as RA,DEC,RADIUS: {str(err)}'
         raise ValueError(message)
@@ -404,10 +404,13 @@ def plot_tiles_targets_fibers(specprod, tileid, fibers):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_table_format()
+        fibers = parse_fibers(fibers)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
-    fibers = parse_fibers(fibers)
+    if np.min(fibers) < 0 or np.max(fibers) > 4999:
+        msg = 'Fibers must be in the range 0-4999'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     #- Find LASTNIGHT for this tile
     try:
