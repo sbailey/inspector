@@ -1,3 +1,7 @@
+"""
+DESI Data Inspector - app.py 
+"""
+
 import io
 import os
 import glob
@@ -22,17 +26,21 @@ from flask import Flask, request, jsonify, render_template, make_response, Respo
 import werkzeug.datastructures.structures
 
 from inspector.auth import conditional_auth
+from inspector.io import (standardize_specprod, parse_fibers, validate_radec, load_targets, load_spectra,
+                          filter_table, add_zcat_columns,
+                          MAX_SPECTRA, MAX_SPECTRA_ERROR_MESSAGE)
+
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
-MAX_RADIUS=1800  # 0.5 deg
-MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius < {MAX_RADIUS} arcsec'
+_MAX_RADIUS=1800  # 0.5 deg
+_MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius < {_MAX_RADIUS} arcsec'
 
-MAX_SPECTRA=1000
-MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
+_MAX_SPECTRA=1000
+_MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
 
-def standardize_specprod(specprod):
+def _standardize_specprod(specprod):
     """
     Return standardized specprod with aliases for dr1 -> iron, etc.
     """
@@ -46,7 +54,7 @@ def standardize_specprod(specprod):
     else:
         return specprod
 
-def parse_fibers(fibers_string):
+def _parse_fibers(fibers_string):
     """
     Parse fiber strings like "0-5,10:12,25" -> [0,1,2,3,4,5,10,11,25]
     Note: A-B is inclusive of B, while A:B is python-like exclusive of B
@@ -253,7 +261,13 @@ def render_table(table, format_type):
     else:
         return f"Unsupported format='{format_type}'", 400
 
-def filter_table(table, args=None):
+def get_filters():
+    """
+    Return URL filter args in structure for inspector.io.filter_table
+    """
+    return request.args.to_dict(flat=False)
+
+def _filter_table(table, args=None):
     """
     Filter a Table based upon URL args dict
 
@@ -296,7 +310,7 @@ def filter_table(table, args=None):
 
     return table[keep]
 
-def add_zcat_columns(targetcat, specprod):
+def _add_zcat_columns(targetcat, specprod):
     """
     Return copy of targetcat with zcat columns added
 
@@ -309,7 +323,7 @@ def add_zcat_columns(targetcat, specprod):
 
     return t
 
-def parse_radec_string(radec):
+def _parse_radec_string(radec):
     try:
         ra,dec,radius = inventory.parse_radec(radec)
     except ValueError as err:
@@ -324,14 +338,14 @@ def parse_radec_string(radec):
 #-------------------------------------------------------------------------
 #- Inventory of targets
 
-def load_targets(specprod, specgroup, radec=None, targetids=None):
+def _load_targets(specprod, specgroup, radec=None, targetids=None):
     """
     required: specprod, specgroup; plus radec OR targetids (but not both)
     """
     specprod = standardize_specprod(specprod)
 
     if radec is not None:
-        radec = parse_radec_string(radec)
+        radec = validate_radec(radec)
     elif targetids is not None:
         targetids = list(map(int, targetids.split(',')))
     else:
@@ -351,7 +365,8 @@ def render_targets(specprod, specgroup, radec=None, targetids=None):
     """
     try:
         format_type = get_table_format()
-        t = load_targets(specprod, specgroup, radec=radec, targetids=targetids)
+        filters = get_filters()
+        t = load_targets(specprod, specgroup, radec=radec, targetids=targetids, filters=filters)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
@@ -418,7 +433,8 @@ def targets_tiles_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['FIBER'] = fibers
 
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
+    filters = get_filters()
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters=filters)
 
     return render_table(targetcat, format_type)
 
@@ -495,7 +511,7 @@ def render_spectra_fits(spectra):
 
     return response
 
-def load_spectra(specprod, specgroup, radec=None, targetids=None, maxspectra=MAX_SPECTRA):
+def _load_spectra(specprod, specgroup, radec=None, targetids=None, maxspectra=MAX_SPECTRA):
     """
     Required: specprod, specgroup; and radec OR targetids (but not both)
 
@@ -524,7 +540,7 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
     #- Handle case of no spectra found
     if spectra is None:
         if radec is not None:
-            ra,dec,radius = parse_radec_string(radec)
+            ra,dec,radius = validate_radec(radec)
             msg = f'No targets found within {radius} arcsec of RA,dec=({ra},{dec})'
         else:
             msg = f'No targets found with TARGETIDs={targetids}'
@@ -533,7 +549,7 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
 
     if format_type == 'html':
         if radec is not None:
-            ra,dec,radius = parse_radec_string(radec)
+            ra,dec,radius = validate_radec(radec)
             spectra.meta['description'] = f'{len(spectra)} targets within {radius:.1f} arcsec of RA,dec=({ra:.4f},{dec:.4f})'
 
         return render_spectra_plot(spectra)
@@ -591,7 +607,8 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['TILEID'] = tileid
 
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod))
+    filters = get_filters()
+    targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters)
 
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)

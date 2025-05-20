@@ -133,8 +133,6 @@ class FlaskAppTestCase(unittest.TestCase):
             t = Table.read(BytesIO(response.data), format=format)
             self.assertEqual(len(t), 4)
 
-    #- TODO: some of these are 500 internal server errors intead of 400/404
-    @unittest.expectedFailure
     def test_targets_radec_failures(self):
         #- 400 Bad Request if outside DESI footprint
         response = self.app.get('/dr1/targets/radec/210,-80,10')
