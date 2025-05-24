@@ -40,12 +40,12 @@ _MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius < {_MAX_RADIUS}
 _MAX_SPECTRA=1000
 _MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
 
-@app.route("/testargs")
-def test_filter():
-    print(type(request.args))
-    return str(request.args.to_dict(flat=False))
+### @app.route("/testargs")
+### def test_filter():
+###     print(type(request.args))
+###     return str(request.args.to_dict(flat=False))
 
-@app.route("/<string:specprod>/test")
+@app.route("/<string:specprod>/testauth")
 @conditional_auth
 def test_auth(specprod):
     return f"You are allowed to access {specprod} data"
@@ -101,6 +101,19 @@ def render_table_html(table, header, description=''):
     """
     TODO: document
     """
+
+    #- First check if table is empty
+    if table is None or len(table) == 0:
+        return render_template("error.html", code=404, summary='Not Found', message=description), 404
+
+    #- And if there are too many targets
+    ntargets = len(table)
+    nmax = 10000
+    if ntargets>nmax:
+        msg = f"Your query resulted in {ntargets} targets, which is too many for us to realistically display."
+        msg += f" Please limit your query to return less than {nmax} targets."
+        return render_template("error.html", code=400, summary='Not Found', message=msg), 400
+
     #- limit precision for display
     for col in table.colnames:
         if table[col].dtype.kind == 'f':
@@ -110,13 +123,6 @@ def render_table_html(table, header, description=''):
     with io.StringIO() as buffer:
         table.write(buffer, format='ascii.html')
         table_html = buffer.getvalue()
-
-    ntargets = len(table)
-    nmax = 10000
-    if ntargets>nmax:
-        msg = f"Your query resulted in {ntargets} targets, which is too many for us to realistically display."
-        msg += f" Please limit your query to return less than {nmax} targets."
-        return msg
 
     # construct download options footer text
     footer = 'Download table as'
@@ -403,7 +409,7 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
         else:
             msg = f'No targets found with TARGETIDs={targetids}'
 
-        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(msg)), 400
 
     if format_type == 'html':
         if radec is not None:
@@ -452,13 +458,15 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
 
     fibers = parse_fibers(fibers)
     if len(fibers) > MAX_SPECTRA:
-        return MAX_SPECTRA_ERROR_MESSAGE.format(len(fibers), MAX_SPECTRA)
+        msg = MAX_SPECTRA_ERROR_MESSAGE.format(len(fibers), MAX_SPECTRA)
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     #- Find LASTNIGHT for this tile
     try:
         lastnight = get_lastnight(tileid, specprod=specprod)
     except ValueError:
-        return f'Tile {tileid} not found in {specprod} production', 404
+        msg = f'Tile {tileid} not found in {specprod} production'
+        return render_template("error.html", code=404, summary='Not Found', message=msg), 404
 
     targetcat = Table()
     targetcat['FIBER'] = fibers

@@ -39,11 +39,15 @@ def parse_fibers(fibers_string):
         if token.isdigit():
             fibers.append(int(token))
         elif '-' in token:
-            first, last = token.split('-')
-            fibers.extend( np.arange(int(first), int(last)+1) )
+            first, last = map(int, token.split('-'))
+            if first > last:
+                raise ValueError(f'Failed to parse {token} as part of {fibers_string}')
+            fibers.extend( range(first, last+1) )
         elif ':' in token:
-            first, last = token.split(':')
-            fibers.extend( np.arange(int(first), int(last)) )
+            first, last = map(int, token.split(':'))
+            if first > last:
+                raise ValueError(f'Failed to parse {token} as part of {fibers_string}')
+            fibers.extend( range(first, last) )
         else:
             raise ValueError(f'Failed to parse {token} as part of {fibers_string}')
 
@@ -89,15 +93,16 @@ def filter_table(table, filters):
     for column, filter_list in filters.items():
         if column not in table.colnames:
             continue
+        filter_list = np.atleast_1d(filter_list)
         for filt in filter_list:
-            if ':' in filt:
+            if isinstance(filt, str) and ':' in filt:
                 operator, value = filt.split(':')
             else:
                 operator = 'eq'
                 value = filt
 
             value = np.array(value, dtype=table[column].dtype)
-            print(f'Filter {column} {operator} {value}')
+            ### print(f'Filter {column} {operator} {value}')
 
             if operator == 'eq':
                 keep &= (table[column] == value)
@@ -126,7 +131,8 @@ def load_targets(specprod, specgroup, radec=None, targetids=None, filters=None):
     if radec is not None:
         radec = validate_radec(radec)
     elif targetids is not None:
-        targetids = list(map(int, targetids.split(',')))
+        if isinstance(targetids, str):
+            targetids = list(map(int, targetids.split(',')))
     else:
         raise ValueError('must specify radec or targetids')
 
@@ -135,8 +141,9 @@ def load_targets(specprod, specgroup, radec=None, targetids=None, filters=None):
     elif specgroup == 'tiles':
         t = inventory.target_tiles(radec=radec, targetids=targetids, specprod=specprod)
 
-    t = add_zcat_columns(t, specprod)
-    t = filter_table(t, filters)
+    if len(t) > 0:
+        t = add_zcat_columns(t, specprod)
+        t = filter_table(t, filters)
 
     return t
 
@@ -152,7 +159,7 @@ def load_spectra(specprod, specgroup, radec=None, targetids=None, filters=None, 
     num_spectra = len(targetcat)
     if num_spectra == 0:
         return None
-    elif num_spectra > MAX_SPECTRA:
+    elif num_spectra > maxspectra:
         raise ValueError(MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, maxspectra))
 
     print(f'Reading {num_spectra} spectra')
