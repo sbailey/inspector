@@ -161,9 +161,14 @@ def render_table_ascii(table, ascii_format):
     response = make_response(result)
 
     user_agent = request.headers.get('User-Agent', '').lower()
-    print(user_agent)
+    ### print(user_agent)
     if 'wget' in user_agent or 'curl' in user_agent:
-        response.headers['Content-Disposition'] = f'attachment; filename=desi-inventory.txt'
+        if ascii_format == 'csv':
+            filename = 'desi-targets.csv'
+        else:
+            filename = 'desi-targets.txt'
+
+        response.headers['Content-Disposition'] = f'attachment; filename={filename}'
         response.headers['Content-Type'] = 'text/plain'
     else:
         response.headers['Content-Type'] = 'text/plain'
@@ -178,7 +183,7 @@ def render_table_fits(table):
 
     response = make_response(result)
 
-    response.headers['Content-Disposition'] = f'attachment; filename=desi-inventory.fits'
+    response.headers['Content-Disposition'] = f'attachment; filename=desi-targets.fits'
     response.headers['Content-Type'] = 'application/fits'
 
     return response
@@ -499,6 +504,7 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     elif format_type == 'fits':
         return render_spectra_fits(spectra)
     else:
+        #- Upstream code should have validated format_type, but catch here just in case
         msg = f'Unrecognized format {format_type}'
         return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
