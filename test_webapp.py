@@ -11,7 +11,7 @@ from app import app
 #- Utility to temporarily override environment variables while safely cleaning up
 #- Written by LBL CBorg Coder AI
 from contextlib import ContextDecorator
-class EnvironmentVariable(ContextDecorator):
+class TempEnvironmentVariable(ContextDecorator):
     def __init__(self, key, value):
         self.key = key
         self.value = value
@@ -46,7 +46,7 @@ class FlaskAppTestCase(unittest.TestCase):
     #- non-data pages
 
     def test_info_pages(self):
-        for page in ('', 'search', 'examples', 'license', 'about'):
+        for page in ('', 'search', 'examples', 'license', 'about', 'robots.txt', 'dr1/testauth'):
             response = self.app.get(f'/{page}')
             self.assertEqual(response.status_code, 200)
 
@@ -74,8 +74,8 @@ class FlaskAppTestCase(unittest.TestCase):
                         self.assertEqual(response.status_code, 401, errmsg)
 
         #- successful authorization with fake credentials
-        with EnvironmentVariable('DESI_COLLAB_USERNAME', 'blat'):
-            with EnvironmentVariable('DESI_COLLAB_PASSWORD', 'foo'):
+        with TempEnvironmentVariable('DESI_COLLAB_USERNAME', 'blat'):
+            with TempEnvironmentVariable('DESI_COLLAB_PASSWORD', 'foo'):
                 #- success
                 auth_bytes = "blat:foo".encode('utf-8')
                 base64_bytes = base64.b64encode(auth_bytes)
@@ -133,14 +133,12 @@ class FlaskAppTestCase(unittest.TestCase):
             t = Table.read(BytesIO(response.data), format=format)
             self.assertEqual(len(t), 4)
 
-    #- TODO: some of these are 500 internal server errors intead of 400/404
-    @unittest.expectedFailure
     def test_targets_radec_failures(self):
-        #- 400 Bad Request if outside DESI footprint
+        #- 404 Not Found if no targets found, e.g. outside of footprint
         response = self.app.get('/dr1/targets/radec/210,-80,10')
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 404)
 
-        #- ra,dec out of range
+        #- 400 Bad Request if ra,dec out of range
         response = self.app.get('/dr1/targets/radec/210,100,10')
         self.assertEqual(response.status_code, 400)
 
@@ -161,6 +159,10 @@ class FlaskAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
 
         response = self.app.get('/dr1/targets/radec/200deg,10deg,5arcsec')
+        self.assertEqual(response.status_code, 400)
+
+        #- invalid format
+        response = self.app.get('/dr1/targets/radec/210,5,30?format=invalid')
         self.assertEqual(response.status_code, 400)
 
     def test_targets_tilefibers(self):
@@ -197,6 +199,10 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/targets/tiles/150/10000-10002')
         self.assertEqual(response.status_code, 400)
 
+        #- bad format
+        response = self.app.get('/dr1/targets/150/0-5?format=invalid')
+        self.assertEqual(response.status_code, 400)
+
     def test_targets_targetids(self):
         #- basic
         response = self.app.get('/dr1/targets/39627908959964170,39627908959964322')
@@ -214,6 +220,7 @@ class FlaskAppTestCase(unittest.TestCase):
         #- filter by SURVEY
         t = Table.read(BytesIO(self.app.get('/dr1/targets/39627908959964170,39627908959964322?SURVEY=sv3&format=csv').data), format='csv')
         self.assertEqual(len(t), 2)
+
 
     #---------------------------------------------------------------------
     #- Spectra
@@ -243,6 +250,9 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/spectra/150/0,2,3')
         self.assertEqual(response.status_code, 200)
 
+        response = self.app.get('/dr1/spectra/150/0,2,3?format=fits')
+        self.assertEqual(response.status_code, 200)
+
     def test_spectra_targetids(self):
         #- basic (defaults to healpix)
         response = self.app.get('/dr1/spectra/39627908959964170,39627908959964322')
@@ -253,6 +263,33 @@ class FlaskAppTestCase(unittest.TestCase):
         #- tiles
         response = self.app.get('/dr1/spectra/tiles/39627908959964170,39627908959964322')
         self.assertEqual(response.status_code, 200)
+
+    def test_spectra_failures(self):
+        #--- 400 Bad Request cases ---
+
+        #- bad format
+        response = self.app.get('/dr1/spectra/radec/210,5,30?format=invalid')
+        self.assertEqual(response.status_code, 400)
+
+        response = self.app.get('/dr1/spectra/tiles/1000/0-10?format=blatfoo')
+        self.assertEqual(response.status_code, 400)
+
+        #- too many spectra for a single request
+        response = self.app.get('/dr1/spectra/tiles/1000/0:5000')
+        self.assertEqual(response.status_code, 400)
+
+        #--- 404 Not Found cases ---
+
+        #- no spectra found
+        response = self.app.get('/dr1/spectra/radec/10,-80,10')
+        self.assertEqual(response.status_code, 404)
+
+        response = self.app.get('/dr1/spectra/1,2,3')
+        self.assertEqual(response.status_code, 404)
+
+        #- tile not in this production
+        response = self.app.get('/dr1/spectra/99999/0,2,3?format=fits')
+        self.assertEqual(response.status_code, 404)
 
 if __name__ == '__main__':
     unittest.main()
