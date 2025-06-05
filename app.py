@@ -26,19 +26,14 @@ from flask import Flask, request, jsonify, render_template, make_response, Respo
 import werkzeug.datastructures.structures
 
 from inspector.auth import conditional_auth
-from inspector.io import (standardize_specprod, parse_fibers, validate_radec, load_targets, load_spectra,
+from inspector.io import (standardize_specprod, parse_fibers, validate_radec,
+                          load_targets, load_spectra,
                           filter_table, add_zcat_columns,
                           MAX_SPECTRA, MAX_SPECTRA_ERROR_MESSAGE)
 
 
 app = Flask(__name__)
 app.url_map.strict_slashes = False
-
-_MAX_RADIUS=1800  # 0.5 deg
-_MAX_RADIUS_ERROR_MESSAGE = f'Please limit your search to radius < {_MAX_RADIUS} arcsec'
-
-_MAX_SPECTRA=1000
-_MAX_SPECTRA_ERROR_MESSAGE = '{} spectra is more than we can realistically display; please limit your search to fewer than {} spectra'
 
 ### @app.route("/testargs")
 ### def test_filter():
