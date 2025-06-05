@@ -250,6 +250,9 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/spectra/150/0,2,3')
         self.assertEqual(response.status_code, 200)
 
+        response = self.app.get('/dr1/spectra/150/0,2,3?format=fits')
+        self.assertEqual(response.status_code, 200)
+
     def test_spectra_targetids(self):
         #- basic (defaults to healpix)
         response = self.app.get('/dr1/spectra/39627908959964170,39627908959964322')
@@ -262,6 +265,8 @@ class FlaskAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
 
     def test_spectra_failures(self):
+        #--- 400 Bad Request cases ---
+
         #- bad format
         response = self.app.get('/dr1/spectra/radec/210,5,30?format=invalid')
         self.assertEqual(response.status_code, 400)
@@ -269,16 +274,22 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/spectra/tiles/1000/0-10?format=blatfoo')
         self.assertEqual(response.status_code, 400)
 
-        #- no spectra found
-        response = self.app.get('/dr1/spectra/radec/10,-80,10')
-        self.assertEqual(response.status_code, 400)
-
-        response = self.app.get('/dr1/spectra/1,2,3')
-        self.assertEqual(response.status_code, 400)
-
         #- too many spectra for a single request
         response = self.app.get('/dr1/spectra/tiles/1000/0:5000')
         self.assertEqual(response.status_code, 400)
+
+        #--- 404 Not Found cases ---
+
+        #- no spectra found
+        response = self.app.get('/dr1/spectra/radec/10,-80,10')
+        self.assertEqual(response.status_code, 404)
+
+        response = self.app.get('/dr1/spectra/1,2,3')
+        self.assertEqual(response.status_code, 404)
+
+        #- tile not in this production
+        response = self.app.get('/dr1/spectra/99999/0,2,3?format=fits')
+        self.assertEqual(response.status_code, 404)
 
 if __name__ == '__main__':
     unittest.main()

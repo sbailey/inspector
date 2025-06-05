@@ -183,21 +183,32 @@ def render_table_fits(table):
 
     return response
 
-def get_table_format():
-    format_type = request.args.get('format', default='html')
-    valid_formats = ('html', 'json', 'fits', 'csv', 'ascii')
+def validate_format(format_type, valid_formats):
+    """
+    Standardize error message if format_type is not in valid_formats
+
+    Args:
+        format_type (str): format to be checked; if None, get from URL query options
+        valid_formats: list or tuple of valid format strings
+
+    Returns validated format_type, otherwise raise ValueError
+    """
+    if format_type is None:
+        format_type = request.args.get('format', default='html')
+
+    format_type = format_type.lower()
     if format_type not in valid_formats:
-        raise ValueError(f"Unsupported format='{format_type}'; supported formats are {valid_formats}")
+        raise ValueError(f"Unsupported table format='{format_type}'; supported formats are {valid_formats}")
 
     return format_type
+
+def get_table_format():
+    """Return format option from URL, while checking that it is valid for tables"""
+    return validate_format(format_type=None, valid_formats=('html', 'json', 'fits', 'csv', 'ascii'))
 
 def get_spectra_format():
-    format_type = request.args.get('format', default='html')
-    valid_formats = ('html', 'fits')
-    if format_type not in valid_formats:
-        raise ValueError(f"Unsupported format='{format_type}'; supported formats are {valid_formats}")
-
-    return format_type
+    """Return format option from URL, while checking that it is valid for spectra"""
+    return validate_format(format_type=None, valid_formats=('html', 'fits'))
 
 def _format_radec(ra,dec):
     rastr = f'{ra:.4f}'.rstrip('0').rstrip('.')
@@ -230,7 +241,9 @@ def render_table(table, format_type):
         return render_table_fits(table)
 
     else:
-        return f"Unsupported format='{format_type}'", 400
+        #- Upstream code should have validated format_type, but catch here just in case
+        msg = f"Unsupported format='{format_type}'"
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
 def get_filters():
     """
@@ -409,7 +422,7 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
         else:
             msg = f'No targets found with TARGETIDs={targetids}'
 
-        return render_template("error.html", code=400, summary='Bad Request', message=str(msg)), 400
+        return render_template("error.html", code=400, summary='Not Found', message=str(msg)), 404
 
     if format_type == 'html':
         if radec is not None:
@@ -420,7 +433,8 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
     elif format_type == 'fits':
         return render_spectra_fits(spectra)
     else:
-        msg = f'Unrecognized format {format_type}'
+        #- Upstream code should have validated format_type, but catch here just in case
+        msg = f"Unsupportedformat='{format_type}'"
         return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
 
@@ -454,7 +468,7 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     try:
         format_type = get_spectra_format()
     except ValueError as err:
-        return str(err), 400
+        return render_template("error.html", code=400, summary='Not Found', message=str(err)), 400
 
     fibers = parse_fibers(fibers)
     if len(fibers) > MAX_SPECTRA:
@@ -485,7 +499,8 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     elif format_type == 'fits':
         return render_spectra_fits(spectra)
     else:
-        return f'Unrecognized format {format_type}', 400
+        msg = f'Unrecognized format {format_type}'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
 if __name__ == "__main__":
     app.run(debug=True, port=5500)
