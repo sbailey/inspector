@@ -75,6 +75,9 @@ def add_zcat_columns(targetcat, specprod):
     zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
     for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
         t[col] = zcat[col]
+
+    if 'TARGETID' not in t.colnames:
+        t['TARGETID'] = zcat['TARGETID']
     
     return t
 
