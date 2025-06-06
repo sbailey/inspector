@@ -18,12 +18,12 @@ def standardize_specprod(specprod):
     """
     Return standardized specprod with aliases for dr1 -> iron, etc.
     """
-    specprod = specprod.lower()
-    if specprod == 'edr':
+    specprod_lower = specprod.lower()
+    if specprod_lower == 'edr':
         return 'fuji'
-    elif specprod == 'dr1':
+    elif specprod_lower == 'dr1':
         return 'iron'
-    elif specprod == 'dr2':
+    elif specprod_lower == 'dr2':
         return 'loa'
     else:
         return specprod
@@ -72,6 +72,7 @@ def add_zcat_columns(targetcat, specprod):
     Adds TARGET_RA, TARGET_DEC, SPECTYPE, Z, ZWARN
     """
     t = targetcat.copy(copy_data=False)
+    specprod = standardize_specprod(specprod)
     zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
     for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
         t[col] = zcat[col]

@@ -3,6 +3,7 @@ Test some desispec.io functionality not covered by the webapp cases
 """
 
 import unittest
+from astropy.table import Table
 
 class TestIO(unittest.TestCase):
 
@@ -91,14 +92,32 @@ class TestIO(unittest.TestCase):
             t = filter_table(table, dict(A='eq:blat'))
 
     def test_load_targets(self):
-        """Test failure mode of load_targets"""
+        """Test load_targets, including failure modes"""
         from inspector.io import load_targets
+        targets = load_targets('dr1', 'healpix', radec=(210,5,30))
+        self.assertGreater(len(targets), 0)
+        targets = load_targets('dr1', 'healpix', targetids=[39627908959964170, 39627908959964322])
+        self.assertGreater(len(targets), 0)
+        targets = load_targets('dr1', 'healpix', targetids='39627908959964170,39627908959964322')
+        self.assertGreater(len(targets), 0)
+
+        targets = load_targets('dr1', 'tiles', radec=(210,5,30))
+        self.assertGreater(len(targets), 0)
+        targets = load_targets('dr1', 'tiles', targetids=[39627908959964170, 39627908959964322])
+        self.assertGreater(len(targets), 0)
+        targets = load_targets('dr1', 'tiles', targetids='39627908959964170,39627908959964322')
+        self.assertGreater(len(targets), 0)
+
         with self.assertRaises(ValueError):
             targets = load_targets('dr1', 'healpix')  # needs radec or targetids
 
     def test_load_spectra(self):
-        """Test failure mode of load_spectra"""
+        """Test load_spectra (basic), including failure modes"""
         from inspector.io import load_spectra
+        targetids = [39627908959964170, 39627908959964322]
+        spectra = load_spectra('dr1', 'healpix', targetids=targetids)
+        self.assertGreater(len(spectra), 0)
+
         spectra = load_spectra('dr1', 'healpix', targetids=[1,2,3])
         self.assertEqual(spectra, None)
 
@@ -108,6 +127,34 @@ class TestIO(unittest.TestCase):
         targetids = [39627908959964170, 39627908959964322]
         with self.assertRaises(ValueError):
             sp = load_spectra('dr1', 'healpix', targetids=targetids, maxspectra=1)
+
+    def test_add_zcat_columns(self):
+        from inspector.io import add_zcat_columns
+        t1 = Table()
+        t1 = Table()
+        t1['FIBER'] = [0,1,2,3,4]
+        t1['LASTNIGHT'] = 20210418
+        t1['TILEID'] = 150
+
+        t2 = add_zcat_columns(t1, 'iron')
+        self.assertNotIn('Z', t1.colnames)  #- original wasn't changed
+        self.assertIn('Z', t2.colnames)     #- new has extra columns
+        self.assertIn('TARGETID', t2.colnames)
+
+    def test_standardize_specprod(self):
+        from inspector.io import standardize_specprod
+        self.assertEqual(standardize_specprod('edr'), 'fuji')
+        self.assertEqual(standardize_specprod('dr1'), 'iron')
+        self.assertEqual(standardize_specprod('dr2'), 'loa')
+
+        #- UPPERCASE DR names also work
+        self.assertEqual(standardize_specprod('EDR'), 'fuji')
+        self.assertEqual(standardize_specprod('DR1'), 'iron')
+        self.assertEqual(standardize_specprod('DR2'), 'loa')
+
+        #- Otherwise pass through specprod regardless of case
+        self.assertEqual(standardize_specprod('blat'), 'blat')
+        self.assertEqual(standardize_specprod('Blat'), 'Blat')
 
 
 if __name__ == '__main__':
