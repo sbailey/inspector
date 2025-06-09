@@ -310,7 +310,7 @@ def targets_tiles_fibers(specprod, tileid, fibers):
         lastnight = get_lastnight(tileid, specprod=specprod)
     except ValueError as err:
         msg = f'Tile {tileid} not found in {specprod} production'
-        return render_template("error.html", code=404, summary='Not Found', message=str(err)), 404
+        return render_template("error.html", code=404, summary='Not Found', message=str(msg)), 404
 
     #- read fibermaps to find the TARGETIDs for these fibers
     fiber2targetid = dict()
@@ -329,8 +329,11 @@ def targets_tiles_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['FIBER'] = fibers
 
-    filters = get_filters()
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters=filters)
+    try:
+        filters = get_filters()
+        targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters=filters)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     return render_table(targetcat, format_type)
 
@@ -410,7 +413,8 @@ def render_spectra_fits(spectra):
 def render_spectra(specprod, specgroup, radec=None, targetids=None):
     try:
         format_type = get_spectra_format()
-        spectra = load_spectra(specprod, specgroup=specgroup, radec=radec, targetids=targetids)
+        filters = get_filters()
+        spectra = load_spectra(specprod, specgroup=specgroup, radec=radec, targetids=targetids, filters=filters)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
@@ -487,8 +491,11 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     targetcat['LASTNIGHT'] = lastnight
     targetcat['TILEID'] = tileid
 
-    filters = get_filters()
-    targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters)
+    try:
+        filters = get_filters()
+        targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters)
+    except ValueError as err:
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)

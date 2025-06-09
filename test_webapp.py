@@ -165,6 +165,10 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/targets/radec/210,5,30?format=invalid')
         self.assertEqual(response.status_code, 400)
 
+        #- Bad filter (should be Z, not REDSHIFT)
+        response = self.app.get('/dr1/targets/radec/210,5,30?REDSHIFT=gt:1.0')
+        self.assertEqual(response.status_code, 400)
+
     def test_targets_tilefibers(self):
         #- basic
         response = self.app.get('/dr1/targets/150/0-5,10,20:22')
@@ -203,6 +207,10 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/targets/150/0-5?format=invalid')
         self.assertEqual(response.status_code, 400)
 
+        #- bad filter
+        response = self.app.get('/dr1/targets/150/0-5?BLAT=foo')
+        self.assertEqual(response.status_code, 400)
+
     def test_targets_targetids(self):
         #- basic
         response = self.app.get('/dr1/targets/39627908959964170,39627908959964322')
@@ -221,6 +229,14 @@ class FlaskAppTestCase(unittest.TestCase):
         t = Table.read(BytesIO(self.app.get('/dr1/targets/39627908959964170,39627908959964322?SURVEY=sv3&format=csv').data), format='csv')
         self.assertEqual(len(t), 2)
 
+    def test_targets_targetids_failures(self):
+        #- bad format
+        response = self.app.get('/dr1/targets/healpix/39627908959964170,39627908959964322?format=spreadsheet')
+        self.assertEqual(response.status_code, 400)
+
+        #- bad filter
+        response = self.app.get('/dr1/targets/healpix/39627908959964170,39627908959964322?BLAT=foo')
+        self.assertEqual(response.status_code, 400)
 
     #---------------------------------------------------------------------
     #- Spectra
@@ -271,7 +287,20 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/spectra/radec/210,5,30?format=invalid')
         self.assertEqual(response.status_code, 400)
 
+        response = self.app.get('/dr1/spectra/39627908959964170,39627908959964322?format=bizbat')
+        self.assertEqual(response.status_code, 400)
+
         response = self.app.get('/dr1/spectra/tiles/1000/0-10?format=blatfoo')
+        self.assertEqual(response.status_code, 400)
+
+        #- bad filter
+        response = self.app.get('/dr1/spectra/radec/210,5,30?BLAT=foo')
+        self.assertEqual(response.status_code, 400)
+
+        response = self.app.get('/dr1/spectra/39627908959964170,39627908959964322?Z=qq:1.0')
+        self.assertEqual(response.status_code, 400)
+
+        response = self.app.get('/dr1/spectra/tiles/1000/0-10?Z=gt:hello')
         self.assertEqual(response.status_code, 400)
 
         #- too many spectra for a single request
