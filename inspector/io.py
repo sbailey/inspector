@@ -95,8 +95,14 @@ def filter_table(table, filters):
 
     keep = np.ones(len(table), dtype=bool)
     for column, filter_list in filters.items():
-        if column not in table.colnames:
+        #- Interpret UPPERCASE as columns for filter; otherwise other options
+        if not column.isupper():
             continue
+
+        #- If UPPERCASE but not in the table columns, that is an error
+        if column not in table.colnames:
+            raise ValueError(f'Filter column "{column}" not in {table.colnames}')
+
         filter_list = np.atleast_1d(filter_list)
         for filt in filter_list:
             if isinstance(filt, str) and ':' in filt:
