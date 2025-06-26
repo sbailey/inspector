@@ -65,7 +65,7 @@ def validate_radec(radec):
 
     return ra,dec,radius
 
-def add_zcat_columns(targetcat, specprod):
+def add_zcat_columns(targetcat, specprod, xcol=None):
     """
     Return copy of targetcat with zcat columns added
     
@@ -73,13 +73,23 @@ def add_zcat_columns(targetcat, specprod):
     """
     t = targetcat.copy(copy_data=False)
     specprod = standardize_specprod(specprod)
-    zcat = read_redrock_targetcat(t, fmcols=['TARGET_RA', 'TARGET_DEC'], specprod=specprod)
-    for col in ['TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN']:
-        t[col] = zcat[col]
 
-    if 'TARGETID' not in t.colnames:
-        t['TARGETID'] = zcat['TARGETID']
-    
+    if xcol is None:
+        xcol = []
+
+    #- Fragile: list of columns that will be in the redrock REDSHIFTS HDU;
+    #- assume others are in the FIBERMAP HDU
+    rrcols = ('TARGETID','Z','ZERR','ZWARN','CHI2','COEFF','NPIXELS','SPECTYPE','SUBTYPE','NCOEFF','DELTACHI2')
+    fmcols = ['TARGET_RA', 'TARGET_DEC']
+    for col in xcol:
+        if (col not in t.colnames) and (col not in rrcols) and (col not in fmcols):
+            fmcols.append(col)
+
+    zcat = read_redrock_targetcat(t, fmcols=fmcols, specprod=specprod)
+    for col in ['TARGETID', 'TARGET_RA', 'TARGET_DEC', 'SPECTYPE', 'Z', 'ZWARN'] + xcol:
+        if col not in t.colnames:
+            t[col] = zcat[col]
+
     return t
 
 def filter_table(table, filters):
@@ -132,7 +142,7 @@ def filter_table(table, filters):
 
     return table[keep]
 
-def load_targets(specprod, specgroup, radec=None, targetids=None, filters=None):
+def load_targets(specprod, specgroup, radec=None, targetids=None, filters=None, xcol=None):
     """
     required: specprod, specgroup; plus radec OR targetids (but not both)
     """
@@ -151,8 +161,18 @@ def load_targets(specprod, specgroup, radec=None, targetids=None, filters=None):
     elif specgroup == 'tiles':
         t = inventory.target_tiles(radec=radec, targetids=targetids, specprod=specprod)
 
+    # TODO: if no targets match, the returned len=0 table will not have xcol,
+    # but this code can't trivially determine the type those should be even if added
+
     if len(t) > 0:
-        t = add_zcat_columns(t, specprod)
+        if filters is not None:
+            if xcol is None:
+                xcol = []
+            for colname in filters:
+                if colname not in xcol:
+                    xcol.append(colname)
+
+        t = add_zcat_columns(t, specprod, xcol=xcol)
         t = filter_table(t, filters)
 
     return t

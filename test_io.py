@@ -3,6 +3,7 @@ Test some desispec.io functionality not covered by the webapp cases
 """
 
 import unittest
+import numpy as np
 from astropy.table import Table
 
 class TestIO(unittest.TestCase):
@@ -108,6 +109,16 @@ class TestIO(unittest.TestCase):
         targets = load_targets('dr1', 'tiles', targetids='39627908959964170,39627908959964322')
         self.assertGreater(len(targets), 0)
 
+        targets = load_targets('dr1', 'tiles', radec=(210,5,30), xcol=['SUBTYPE', 'FLUX_R'])
+        self.assertIn('SUBTYPE', targets.colnames)
+        self.assertIn('FLUX_R', targets.colnames)
+
+        zerr_cut = 5e-5
+        filters = dict(ZERR=f'gt:{zerr_cut}')
+        targets = load_targets('dr1', 'tiles', radec=(210,5,30), filters=filters)
+        self.assertIn('ZERR', targets.colnames)
+        self.assertTrue(np.all(targets['ZERR']>zerr_cut))
+
         with self.assertRaises(ValueError):
             targets = load_targets('dr1', 'healpix')  # needs radec or targetids
 
@@ -140,6 +151,19 @@ class TestIO(unittest.TestCase):
         self.assertNotIn('Z', t1.colnames)  #- original wasn't changed
         self.assertIn('Z', t2.colnames)     #- new has extra columns
         self.assertIn('TARGETID', t2.colnames)
+
+        #- New column in REDSHIFTS HDU
+        t3 = add_zcat_columns(t1, 'iron', xcol=['SUBTYPE',])
+        self.assertIn('SUBTYPE', t3.colnames)
+
+        #- New columns in FIBERMAP HDU
+        t4 = add_zcat_columns(t1, 'iron', xcol=['FLUX_G', 'FLUX_R'])
+        self.assertIn('FLUX_G', t4.colnames)
+        self.assertIn('FLUX_R', t4.colnames)
+
+        #- xcol that was already in the list anyway
+        t5 = add_zcat_columns(t1, 'iron', xcol=['Z', 'SPECTYPE'])
+        self.assertEqual(t2.colnames, t5.colnames)
 
     def test_standardize_specprod(self):
         from inspector.io import standardize_specprod

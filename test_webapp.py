@@ -31,7 +31,6 @@ class TempEnvironmentVariable(ContextDecorator):
         elif self.key in os.environ:
             del os.environ[self.key]
 
-
 class FlaskAppTestCase(unittest.TestCase):
     def setUp(self):
         self.app = app.test_client()
@@ -41,6 +40,14 @@ class FlaskAppTestCase(unittest.TestCase):
 
     def tearDown(self):
         warnings.resetwarnings()
+
+    #- Utility function to get table from URL
+    def get_table(self, url):
+        """Read csv data from URL and return astropy Table"""
+        response = self.app.get(url)
+        assert response.status_code == 200
+        t = Table.read(BytesIO(response.get_data()), format='csv')
+        return t
 
     #---------------------------------------------------------------------
     #- non-data pages
@@ -238,6 +245,46 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/targets/healpix/39627908959964170,39627908959964322?BLAT=foo')
         self.assertEqual(response.status_code, 400)
 
+    def test_targets_extra_columns(self):
+        #- confirm that default does not have SUBTYPE and FLUX_R
+        response = self.app.get('/dr1/targets/39627908959964170,39627908959964322?format=csv')
+        self.assertEqual(response.status_code, 200)
+        colnames = response.get_data(as_text=True).split('\n')[0].split(',')
+        self.assertIn('Z', colnames)
+        self.assertNotIn('SUBTYPE', colnames)
+
+        #- also request SUBTYPE and FLUX_R
+        response = self.app.get('/dr1/targets/39627908959964170,39627908959964322?format=csv&xcol=SUBTYPE,FLUX_R')
+        self.assertEqual(response.status_code, 200)
+        colnames = response.get_data(as_text=True).split('\n')[0].split(',')
+        self.assertIn('SUBTYPE', colnames)
+        self.assertIn('FLUX_R', colnames)
+
+        #- And check other endpoints
+        response = self.app.get('/dr1/targets/tiles/150/0-2?format=csv&xcol=SUBTYPE,FLUX_R')
+        self.assertEqual(response.status_code, 200)
+        colnames = response.get_data(as_text=True).split('\n')[0].split(',')
+        self.assertIn('SUBTYPE', colnames)
+        self.assertIn('FLUX_R', colnames)
+
+        response = self.app.get('/dr1/targets/radec/210,5,30?format=csv&xcol=SUBTYPE,FLUX_R')
+        self.assertEqual(response.status_code, 200)
+        colnames = response.get_data(as_text=True).split('\n')[0].split(',')
+        self.assertIn('SUBTYPE', colnames)
+        self.assertIn('FLUX_R', colnames)
+
+    def test_targets_extra_column_filters(self):
+        #- confirm that filtering on a column adds it to the list of columns
+        baseurl = '/dr1/targets/tiles/150/0-500?format=csv'
+        t1 = self.get_table(baseurl)
+        self.assertNotIn('DELTACHI2', t1.colnames)
+
+        t2 = self.get_table(baseurl+'&DELTACHI2=gt:25')
+        self.assertIn('DELTACHI2', t2.colnames)
+        self.assertLess(len(t2), len(t1))
+        self.assertTrue(np.all(t2['DELTACHI2']>25))
+
+
     #---------------------------------------------------------------------
     #- Spectra
     #- slower, so less complete coverage of all matrix options
@@ -261,12 +308,20 @@ class FlaskAppTestCase(unittest.TestCase):
         response = self.app.get('/dr1/spectra/radec/210,5,30?plotnoise=1')
         self.assertEqual(response.status_code, 200)
 
+        #- filter on non-default columns
+        response = self.app.get('/dr1/spectra/radec/210,5,30?ZERR=gt:0')
+        self.assertEqual(response.status_code, 200)
+
     def test_spectra_tilefibers(self):
         #- basic
         response = self.app.get('/dr1/spectra/150/0,2,3')
         self.assertEqual(response.status_code, 200)
 
         response = self.app.get('/dr1/spectra/150/0,2,3?format=fits')
+        self.assertEqual(response.status_code, 200)
+
+        #- filter on non-default columns
+        response = self.app.get('/dr1/spectra/150/0-100?SUBTYPE=HIZ')
         self.assertEqual(response.status_code, 200)
 
     def test_spectra_targetids(self):
@@ -278,6 +333,9 @@ class FlaskAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         #- tiles
         response = self.app.get('/dr1/spectra/tiles/39627908959964170,39627908959964322')
+        self.assertEqual(response.status_code, 200)
+        #- filter on non-default column
+        response = self.app.get('/dr1/spectra/healpix/39627908959964170,39627908959964322?ZERR=gt:0')
         self.assertEqual(response.status_code, 200)
 
     def test_spectra_failures(self):
