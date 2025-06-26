@@ -284,8 +284,11 @@ def render_targets(specprod, specgroup, radec=None, targetids=None):
         filters = get_filters()
         xcol = get_extra_columns()
         t = load_targets(specprod, specgroup, radec=radec, targetids=targetids, filters=filters, xcol=xcol)
-    except (ValueError, KeyError) as err:
+    except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+    except KeyError as err:
+        msg = f'Column {err} not found'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     return render_table(t, format_type)
 
@@ -354,8 +357,11 @@ def targets_tiles_fibers(specprod, tileid, fibers):
     try:
         filters = get_filters()
         targetcat = filter_table(add_zcat_columns(targetcat, specprod, xcol=xcol), filters=filters)
-    except (ValueError, KeyError) as err:
+    except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+    except KeyError as err:
+        msg = f'Column {err} not found'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     return render_table(targetcat, format_type)
 
