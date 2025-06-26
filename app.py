@@ -18,7 +18,6 @@ from desispec import inventory
 from desispec.io import read_spectra_parallel, write_spectra, specprod_root
 from desispec.io import findfile
 from desispec.io.meta import get_lastnight
-from desispec.io.redrock import read_redrock_targetcat
 
 from prospect.viewer import plotspectra
 
@@ -248,9 +247,30 @@ def render_table(table, format_type):
 def get_filters():
     """
     Return URL filter args in structure for inspector.io.filter_table
-    """
-    return request.args.to_dict(flat=False)
 
+    Assume UPPERCASE options are for filtering columns
+    """
+    filters = dict()
+    for colname, cut in request.args.to_dict(flat=False).items():
+        if colname.isupper():
+            filters[colname] = cut
+
+    return filters
+
+def get_extra_columns():
+    """
+    Parse URL request.args to derive extra columns to read from redrock files; return list
+    """
+    if 'xcol' in request.args:
+        xcol = request.args['xcol'].split(',')
+    else:
+        xcol = []
+
+    for colname, value in get_filters().items():
+        if colname not in xcol:
+            xcol.append(colname)
+
+    return xcol
 
 #-------------------------------------------------------------------------
 #- Inventory of targets
@@ -262,8 +282,9 @@ def render_targets(specprod, specgroup, radec=None, targetids=None):
     try:
         format_type = get_table_format()
         filters = get_filters()
-        t = load_targets(specprod, specgroup, radec=radec, targetids=targetids, filters=filters)
-    except ValueError as err:
+        xcol = get_extra_columns()
+        t = load_targets(specprod, specgroup, radec=radec, targetids=targetids, filters=filters, xcol=xcol)
+    except (ValueError, KeyError) as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     return render_table(t, format_type)
@@ -298,6 +319,7 @@ def targets_tiles_fibers(specprod, tileid, fibers):
     try:
         format_type = get_table_format()
         fibers = parse_fibers(fibers)
+        xcol = get_extra_columns()
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
@@ -331,8 +353,8 @@ def targets_tiles_fibers(specprod, tileid, fibers):
 
     try:
         filters = get_filters()
-        targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters=filters)
-    except ValueError as err:
+        targetcat = filter_table(add_zcat_columns(targetcat, specprod, xcol=xcol), filters=filters)
+    except (ValueError, KeyError) as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     return render_table(targetcat, format_type)
@@ -417,6 +439,9 @@ def render_spectra(specprod, specgroup, radec=None, targetids=None):
         spectra = load_spectra(specprod, specgroup=specgroup, radec=radec, targetids=targetids, filters=filters)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
+    except KeyError as err:
+        msg = f'Column {err} not found'
+        return render_template("error.html", code=400, summary='Bad Request', message=msg), 400
 
     #- Handle case of no spectra found
     if spectra is None:
@@ -471,8 +496,9 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
     specprod = standardize_specprod(specprod)
     try:
         format_type = get_spectra_format()
+        xcol = get_extra_columns()
     except ValueError as err:
-        return render_template("error.html", code=400, summary='Not Found', message=str(err)), 400
+        return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
     fibers = parse_fibers(fibers)
     if len(fibers) > MAX_SPECTRA:
@@ -493,7 +519,7 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
 
     try:
         filters = get_filters()
-        targetcat = filter_table(add_zcat_columns(targetcat, specprod), filters)
+        targetcat = filter_table(add_zcat_columns(targetcat, specprod, xcol=xcol), filters)
     except ValueError as err:
         return render_template("error.html", code=400, summary='Bad Request', message=str(err)), 400
 
