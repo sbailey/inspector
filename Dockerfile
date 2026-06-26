@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.13-slim
 
 # Set the working directory in the container
 WORKDIR /app
@@ -14,12 +14,12 @@ RUN apt-get update && \
 COPY ./requirements.txt /app/requirements.txt
 
 # Install python dependencies; final chmod is needed to be able to run a non-root
-RUN pip install --no-cache-dir -r requirements.txt                  &&\
-    pip install git+https://github.com/desihub/desiutil@3.5.0       &&\
-    pip install git+https://github.com/desihub/desitarget@2.9.0     \
-                git+https://github.com/desihub/prospect@main        \
-                git+https://github.com/desihub/redrock@0.20.4       \
-                git+https://github.com/desihub/desispec@inventory   &&\
+RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install git+https://github.com/desihub/desiutil@3.6.1       &&\
+    pip install git+https://github.com/desihub/desitarget@4.5.0     \
+                git+https://github.com/desihub/prospect@2.0.2       \
+                git+https://github.com/desihub/redrock@0.22.0       \
+                git+https://github.com/desihub/desispec@inventory2  &&\
     install_redrock_templates
 
 # Copy the current directory contents into the container at /app

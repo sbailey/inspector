@@ -531,7 +531,7 @@ def spectra_tiles_fibers(specprod, tileid, fibers):
 
     print(f'Reading {len(targetcat)} spectra')
     print(targetcat)
-    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, nproc=1, rdspec_kwargs=dict(return_redshifts=True))
 
     if format_type == 'html':
         return render_spectra_plot(spectra)

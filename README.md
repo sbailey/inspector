@@ -11,14 +11,25 @@ Stephen Bailey
 Berkeley Lab
 Spring 2025
 
+## Testing locally
+
+Download sample data to `$DESI_ROOT/spectro/redux`, then run
+```
+python app.py
+```
+
+Optionally also set `$DESI_COLLAB_USERNAME` and `DESI_COLLAB_PASSWORD` to test access to proprietary data.
+This doesn't have to be the real production username/password; it can be anything for testing.
+
 ## Building and running podman/docker container
 
 ```
 podman build -t desi-inspector .
 podman rm inspector
 podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector desi-inspector
-podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector -e DESI_COLLAB_USERNAME=... -e DESI_COLLAB_PASSWORD=... desi-inspector
+podman run -d -p 5001:5001 -v $DESI_ROOT:/desi:ro --name inspector \
+    -e DESI_COLLAB_USERNAME -e DESI_COLLAB_PASSWORD desi-inspector
 podman logs inspector
 
-http://0.0.0.0:5001
+http://localhost:5001
 ```

@@ -1,6 +1,6 @@
-numpy<2
+numpy
 scipy
-astropy<7
+astropy<8
 matplotlib
 numba
 fitsio
@@ -8,5 +8,5 @@ h5py
 healpy
 requests
 flask
-bokeh<3
+bokeh
 gunicorn

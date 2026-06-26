@@ -193,6 +193,6 @@ def load_spectra(specprod, specgroup, radec=None, targetids=None, filters=None, 
         raise ValueError(MAX_SPECTRA_ERROR_MESSAGE.format(num_spectra, maxspectra))
 
     print(f'Reading {num_spectra} spectra')
-    spectra = read_spectra_parallel(targetcat, specprod=specprod, rdspec_kwargs=dict(return_redshifts=True))
+    spectra = read_spectra_parallel(targetcat, specprod=specprod, nproc=1, rdspec_kwargs=dict(return_redshifts=True))
     return spectra
 
